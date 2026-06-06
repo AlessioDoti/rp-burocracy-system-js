@@ -1,0 +1,18 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: burocracy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: burocracy
+      MYSQL_USER: burocracysystem
+      MYSQL_PASSWORD: burocracysystempwd
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/burocracysystem-mysql
+      - ./init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

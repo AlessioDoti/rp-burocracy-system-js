@@ -1,0 +1,268 @@
+{
+  "info": {
+    "name": "Burocracy System",
+    "description": "Complete API collection for the Burocracy System service.\n\nVariables:\n  - base_url: where the service is reachable (default http://localhost:3000)\n  - category_id: id of the last created/used category (auto-set by POST /category)\n  - activity_id: id of the last created/used activity (auto-set by POST /activity/:categoryId)\n  - tax_id: id of the last created/used tax declaration (auto-set by POST /tax/:activity)\n\nThe variable values are overwritten automatically by the corresponding POST request's test script, so running the requests in order keeps everything in sync.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "category_id", "value": "1" },
+    { "key": "activity_id", "value": "1" },
+    { "key": "tax_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "description": "Liveness + DB readiness probe. 200 when the database answers SELECT 1, 503 otherwise."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "pm.test('DB is up', () => pm.expect(pm.response.json().db).to.equal('up'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category",
+      "item": [
+        {
+          "name": "GET /category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/category?page=0&size=20&sort=name,asc",
+              "host": ["{{base_url}}"],
+              "path": ["category"],
+              "query": [
+                { "key": "page", "value": "0", "description": "Zero-based page index" },
+                { "key": "size", "value": "20", "description": "Page size" },
+                { "key": "sort", "value": "name,asc", "description": "Sort as field,direction; allowed fields: id, name" }
+              ]
+            },
+            "description": "List categories, page by page. Returns a Page envelope: { data, page, size, total, totalPages }."
+          }
+        },
+        {
+          "name": "POST /category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Retail\",\n  \"categoryTaxes\": [\n    { \"amount\": 0,     \"rate\": 10 },\n    { \"amount\": 1000,  \"rate\": 15 },\n    { \"amount\": 5000,  \"rate\": 25 },\n    { \"amount\": 20000, \"rate\": 35 }\n  ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/category", "host": ["{{base_url}}"], "path": ["category"] },
+            "description": "Create a new category with its tax brackets. Brackets say: 'if revenue >= amount, apply rate %'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.id) pm.collectionVariables.set('category_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /category/:id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Retail\",\n  \"categoryTaxes\": [\n    { \"amount\": 0,    \"rate\": 10 },\n    { \"amount\": 1000, \"rate\": 18 },\n    { \"amount\": 8000, \"rate\": 28 }\n  ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category", "{{category_id}}"] },
+            "description": "Update a category. PUT semantics: the request body fully replaces the resource — both name and the bracket set are overwritten from the request (no per-bracket diff)."
+          }
+        },
+        {
+          "name": "DELETE /category/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category", "{{category_id}}"] },
+            "description": "Delete a category. Fails with 409 if activities still reference it."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity",
+      "item": [
+        {
+          "name": "GET /activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/activity?page=0&size=20&sort=name,asc",
+              "host": ["{{base_url}}"],
+              "path": ["activity"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "name,asc", "description": "Allowed fields: id, name, address" }
+              ]
+            },
+            "description": "List activities (with category eager-loaded), page by page."
+          }
+        },
+        {
+          "name": "POST /activity/:categoryId",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"API Test Shop\",\n  \"address\": 100\n}"
+            },
+            "url": { "raw": "{{base_url}}/activity/{{category_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{category_id}}"] },
+            "description": "Create a new activity under the given category id. Address defaults to 0 if omitted."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.id) pm.collectionVariables.set('activity_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /activity/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"API Test Shop (renamed)\",\n  \"address\": 250,\n  \"category\": {{category_id}}\n}"
+            },
+            "url": { "raw": "{{base_url}}/activity/{{activity_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{activity_id}}"] },
+            "description": "Partial update of an activity. All three fields are optional: send only the ones you want to change. `category` is the category primary key (not an object). 400 if the body is empty or any field has the wrong type; 404 if `category` does not exist."
+          }
+        },
+        {
+          "name": "DELETE /activity/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base_url}}/activity/{{activity_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{activity_id}}"] },
+            "description": "Delete an activity. Fails with 409 if tax declarations still reference it."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tax",
+      "item": [
+        {
+          "name": "GET /tax",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tax?page=0&size=20&sort=id,desc",
+              "host": ["{{base_url}}"],
+              "path": ["tax"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "id,desc", "description": "Allowed fields: id, declarationDate, payed" }
+              ]
+            },
+            "description": "List every tax declaration, newest first by default."
+          }
+        },
+        {
+          "name": "GET /tax/:activityId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tax/{{activity_id}}?page=0&size=20",
+              "host": ["{{base_url}}"],
+              "path": ["tax", "{{activity_id}}"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "List tax declarations filed against the given ACTIVITY ID (same contract as POST /tax/:activityId)."
+          }
+        },
+        {
+          "name": "POST /tax/:activityId",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"earnings\": 500,\n  \"expenses\": 200,\n  \"managerName\": \"Alessio\",\n  \"managerSurname\": \"Doti\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/tax/{{activity_id}}", "host": ["{{base_url}}"], "path": ["tax", "{{activity_id}}"] },
+            "description": "File a new tax declaration for the given ACTIVITY ID. The manager is resolved through the (mocked) Person service."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.taxId) pm.collectionVariables.set('tax_id', body.taxId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /tax/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payed\": true,\n  \"elapsedDays\": 10\n}"
+            },
+            "url": { "raw": "{{base_url}}/tax/{{tax_id}}", "host": ["{{base_url}}"], "path": ["tax", "{{tax_id}}"] },
+            "description": "Partial update of a tax declaration. All four fields (earnings, expenses, payed, elapsedDays) are optional; at least one is required. A literal 0 is a valid value (NOT a 'no change' sentinel): omit the field to keep the persisted value. The derived fields (revenue, taxRate, taxAmount, elapsedBillAmount, taxableIncome) are always recomputed from the merged state."
+          }
+        }
+      ]
+    }
+  ]
+}
