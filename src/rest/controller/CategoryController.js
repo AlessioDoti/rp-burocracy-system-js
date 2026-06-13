@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { buildPageable } from '../../domain/dto/Page.js';
 import { CategoryRequest } from '../request/impl/CategoryRequest.js';
 import { CategoryTaxRequest } from '../request/impl/CategoryTaxRequest.js';
+import { requireRole } from '../middleware/requireRole.js';
 
 /**
  * Builds the `/category` router.
@@ -35,7 +36,7 @@ export function createCategoryRouter({ factory, handler }) {
   /**
    * `POST /category` — create a new category with its brackets.
    */
-  router.post('/', async (req, res, next) => {
+  router.post('/', requireRole('ADMIN'), async (req, res, next) => {
     try {
       const dto = factory.getDTO(hydrate(req.body));
       const result = await handler.handleInsert(dto);
@@ -49,7 +50,7 @@ export function createCategoryRouter({ factory, handler }) {
    * `PUT /category/:id` — overwrite an existing category. The bracket
    * set is replaced wholesale.
    */
-  router.put('/:id', async (req, res, next) => {
+  router.put('/:id', requireRole('ADMIN'), async (req, res, next) => {
     try {
       const dto = factory.getDTO(hydrate(req.body));
       const result = await handler.handleUpdate(dto, Number(req.params.id));
@@ -62,7 +63,7 @@ export function createCategoryRouter({ factory, handler }) {
   /**
    * `GET /category` — list a page of categories.
    */
-  router.get('/', async (req, res, next) => {
+  router.get('/', requireRole('ADMIN', 'GOVERNMENT'), async (req, res, next) => {
     try {
       const pageable = buildPageable(req.query);
       const page = await handler.handleFindAll(pageable);
@@ -75,7 +76,7 @@ export function createCategoryRouter({ factory, handler }) {
   /**
    * `DELETE /category/:id` — delete a category.
    */
-  router.delete('/:id', async (req, res, next) => {
+  router.delete('/:id', requireRole('ADMIN'), async (req, res, next) => {
     try {
       await handler.handleDelete(Number(req.params.id));
       res.status(200).send('');

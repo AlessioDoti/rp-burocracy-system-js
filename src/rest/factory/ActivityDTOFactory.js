@@ -1,21 +1,21 @@
 /**
  * @fileoverview Builds an `ActivityDTO` from a request object.
  *
- * The insert path returns a full `ActivityDTO` (with `name` and
- * `address`); the request handler attaches the resolved `category`
+ * The insert path returns a full `ActivityDTO` (with `name`, `address`,
+ * and `employees`); the request handler attaches the resolved `category`
  * before validation. The update path returns a plain **patch** object
- * (with optional `name`, `address`, `category`) — at this point
- * `category` is still the raw primary key from the request body, not
- * a resolved `CategoryDTO`. The handler resolves the id and
- * overwrites the same `category` field with the resolved object
+ * — at this point `category` is still the raw primary key from the
+ * request body, not a resolved `CategoryDTO`. The handler resolves the
+ * id and overwrites the same `category` field with the resolved object
  * before delegating to the service.
  *
- * `instanceof` is used as a primary discriminator; a `type` string
- * tag is accepted as a fallback so JSON-deserialised request objects
- * (which lose their prototype) still dispatch correctly.
+ * `instanceof` is used as a primary discriminator; a `type` string tag
+ * is accepted as a fallback so JSON-deserialised request objects (which
+ * lose their prototype) still dispatch correctly.
  */
 
 import { ActivityDTO } from '../../domain/dto/ActivityDTO.js';
+import { ActivityEmployeeDTO } from '../../domain/dto/ActivityEmployeeDTO.js';
 import { BaseActivityRequest } from '../request/BaseActivityRequest.js';
 import { InsertActivityRequest } from '../request/impl/InsertActivityRequest.js';
 import { UpdateActivityRequest } from '../request/impl/UpdateActivityRequest.js';
@@ -24,13 +24,9 @@ import { UpdateActivityRequest } from '../request/impl/UpdateActivityRequest.js'
  * @typedef {{
  *   name?: string,
  *   address?: number,
- *   category?: number
+ *   category?: number,
+ *   employees?: Array<{ employeeUuid: string, role: string }>
  * }} ActivityUpdatePatch
- *
- * Raw patch shape produced by the factory for `UpdateActivityRequest`.
- * The `category` field is the primary key from the request body when
- * the patch leaves the factory; the handler resolves it into a
- * `CategoryDTO` before passing the patch to the service.
  */
 
 /**
@@ -56,30 +52,28 @@ export class ActivityDTOFactory {
 
   /**
    * @param {import('../request/impl/InsertActivityRequest.js').InsertActivityRequest} request
-   * @returns {ActivityDTO} A DTO carrying `name` and `address`. `category` and `management`
-   *   are filled in by the request handler.
+   * @returns {ActivityDTO}
    */
   getInsertDTO(request) {
     return new ActivityDTO({
       name: request.name,
-      address: request.address
+      address: request.address,
+      employees: (request.employees || []).map(
+        (e) => new ActivityEmployeeDTO({ employeeUuid: e.employeeUuid, role: e.role })
+      )
     });
   }
 
   /**
    * @param {import('../request/impl/UpdateActivityRequest.js').UpdateActivityRequest} request
-   * @returns {ActivityUpdatePatch} A patch object. Every field is
-   *   optional, so the returned object has `undefined` for any
-   *   property the caller did not set on the request. The `category`
-   *   field carries the raw primary key from the request body when
-   *   the patch leaves the factory; the request handler resolves it
-   *   into a `CategoryDTO` before calling the service.
+   * @returns {ActivityUpdatePatch}
    */
   getUpdateDTO(request) {
     return {
       name: request.name,
       address: request.address,
-      category: request.category
+      category: request.category,
+      employees: request.employees
     };
   }
 }

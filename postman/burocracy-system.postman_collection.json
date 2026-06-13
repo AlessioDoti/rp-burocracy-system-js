@@ -1,16 +1,50 @@
 {
   "info": {
     "name": "Burocracy System",
-    "description": "Complete API collection for the Burocracy System service.\n\nVariables:\n  - base_url: where the service is reachable (default http://localhost:3000)\n  - category_id: id of the last created/used category (auto-set by POST /category)\n  - activity_id: id of the last created/used activity (auto-set by POST /activity/:categoryId)\n  - tax_id: id of the last created/used tax declaration (auto-set by POST /tax/:activity)\n\nThe variable values are overwritten automatically by the corresponding POST request's test script, so running the requests in order keeps everything in sync.",
+    "description": "Complete API collection for the Burocracy System service.\n\nAll API endpoints require a valid JWT access token (except /health) AND role-based access:\n  - ADMIN: full access to everything.\n  - GOVERNMENT: read-only on category, activity, and tax.\n  - ACTIVITY_MANAGER: read/update only their own activities (checked via employee list).\n\nRun the **Login** request first to obtain a token.\n\nVariables:\n  - base_url       : service address (default http://localhost:8081)\n  - access_token   : auto-set by Login request\n  - category_id    : auto-set by POST /category\n  - activity_id    : auto-set by POST /activity/:categoryId\n  - tax_id         : auto-set by POST /tax/:activity\n  - employee_uuid  : UUID of an existing person (use from person-system)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "base_url", "value": "http://localhost:8081" },
+    { "key": "access_token", "value": "" },
     { "key": "category_id", "value": "1" },
     { "key": "activity_id", "value": "1" },
-    { "key": "tax_id", "value": "1" }
+    { "key": "tax_id", "value": "1" },
+    { "key": "employee_uuid", "value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
   ],
   "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/token (login)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"password\",\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": { "raw": "http://localhost:8083/auth/token", "host": ["http://localhost:8083"], "path": ["auth", "token"] },
+            "description": "Obtain a JWT access token from the Auth System. The token is automatically stored in the {{access_token}} variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('access_token', pm.response.json().access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "Health",
       "item": [
@@ -44,7 +78,7 @@
           "name": "GET /category",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": {
               "raw": "{{base_url}}/category?page=0&size=20&sort=name,asc",
               "host": ["{{base_url}}"],
@@ -62,13 +96,16 @@
           "name": "POST /category",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Retail\",\n  \"categoryTaxes\": [\n    { \"amount\": 0,     \"rate\": 10 },\n    { \"amount\": 1000,  \"rate\": 15 },\n    { \"amount\": 5000,  \"rate\": 25 },\n    { \"amount\": 20000, \"rate\": 35 }\n  ]\n}"
             },
             "url": { "raw": "{{base_url}}/category", "host": ["{{base_url}}"], "path": ["category"] },
-            "description": "Create a new category with its tax brackets. Brackets say: 'if revenue >= amount, apply rate %'."
+            "description": "Create a new category with its tax brackets."
           },
           "event": [
             {
@@ -90,20 +127,23 @@
           "name": "PUT /category/:id",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Retail\",\n  \"categoryTaxes\": [\n    { \"amount\": 0,    \"rate\": 10 },\n    { \"amount\": 1000, \"rate\": 18 },\n    { \"amount\": 8000, \"rate\": 28 }\n  ]\n}"
             },
             "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category", "{{category_id}}"] },
-            "description": "Update a category. PUT semantics: the request body fully replaces the resource — both name and the bracket set are overwritten from the request (no per-bracket diff)."
+            "description": "Update a category. PUT semantics: the request body fully replaces the resource."
           }
         },
         {
           "name": "DELETE /category/:id",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category", "{{category_id}}"] },
             "description": "Delete a category. Fails with 409 if activities still reference it."
           }
@@ -114,10 +154,19 @@
       "name": "Activity",
       "item": [
         {
+          "name": "GET /activity/employee/:uuid",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/activity/employee/{{employee_uuid}}", "host": ["{{base_url}}"], "path": ["activity", "employee", "{{employee_uuid}}"] },
+            "description": "Return all activities where the given person UUID is an employee. Requires a valid JWT (any role)."
+          }
+        },
+        {
           "name": "GET /activity",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": {
               "raw": "{{base_url}}/activity?page=0&size=20&sort=name,asc",
               "host": ["{{base_url}}"],
@@ -128,20 +177,32 @@
                 { "key": "sort", "value": "name,asc", "description": "Allowed fields: id, name, address" }
               ]
             },
-            "description": "List activities (with category eager-loaded), page by page."
+            "description": "List activities (with category and employees eager-loaded), page by page."
+          }
+        },
+        {
+          "name": "GET /activity/:id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/activity/{{activity_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{activity_id}}"] },
+            "description": "Return a single activity by id, with category and employees loaded."
           }
         },
         {
           "name": "POST /activity/:categoryId",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"API Test Shop\",\n  \"address\": 100\n}"
+              "raw": "{\n  \"name\": \"API Test Shop\",\n  \"address\": 100,\n  \"employees\": [\n    { \"employeeUuid\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\", \"role\": \"manager\" }\n  ]\n}"
             },
             "url": { "raw": "{{base_url}}/activity/{{category_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{category_id}}"] },
-            "description": "Create a new activity under the given category id. Address defaults to 0 if omitted."
+            "description": "Create a new activity under the given category. `employees` is optional — include it to attach employee UUIDs on creation."
           },
           "event": [
             {
@@ -163,22 +224,25 @@
           "name": "PATCH /activity/:id",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"API Test Shop (renamed)\",\n  \"address\": 250,\n  \"category\": {{category_id}}\n}"
+              "raw": "{\n  \"name\": \"API Test Shop (renamed)\",\n  \"address\": 250,\n  \"category\": {{category_id}},\n  \"employees\": [\n    { \"employeeUuid\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\", \"role\": \"manager\" }\n  ]\n}"
             },
             "url": { "raw": "{{base_url}}/activity/{{activity_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{activity_id}}"] },
-            "description": "Partial update of an activity. All three fields are optional: send only the ones you want to change. `category` is the category primary key (not an object). 400 if the body is empty or any field has the wrong type; 404 if `category` does not exist."
+            "description": "Partial update of an activity. In addition to `name`, `address`, `category`, the PATCH accepts `employees` (array of {employeeUuid, role}) which **replaces** the full employee list. Pass an empty array `[]` to remove all employees. All fields are optional; at least one is required."
           }
         },
         {
           "name": "DELETE /activity/:id",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": { "raw": "{{base_url}}/activity/{{activity_id}}", "host": ["{{base_url}}"], "path": ["activity", "{{activity_id}}"] },
-            "description": "Delete an activity. Fails with 409 if tax declarations still reference it."
+            "description": "Delete an activity. Cascades to employees and tax declarations."
           }
         }
       ]
@@ -190,7 +254,7 @@
           "name": "GET /tax",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": {
               "raw": "{{base_url}}/tax?page=0&size=20&sort=id,desc",
               "host": ["{{base_url}}"],
@@ -208,7 +272,7 @@
           "name": "GET /tax/:activityId",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": {
               "raw": "{{base_url}}/tax/{{activity_id}}?page=0&size=20",
               "host": ["{{base_url}}"],
@@ -218,20 +282,23 @@
                 { "key": "size", "value": "20" }
               ]
             },
-            "description": "List tax declarations filed against the given ACTIVITY ID (same contract as POST /tax/:activityId)."
+            "description": "List tax declarations filed against the given ACTIVITY ID."
           }
         },
         {
           "name": "POST /tax/:activityId",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"earnings\": 500,\n  \"expenses\": 200,\n  \"managerName\": \"Alessio\",\n  \"managerSurname\": \"Doti\"\n}"
+              "raw": "{\n  \"earnings\": 500,\n  \"expenses\": 200,\n  \"employeeUuid\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n}"
             },
             "url": { "raw": "{{base_url}}/tax/{{activity_id}}", "host": ["{{base_url}}"], "path": ["tax", "{{activity_id}}"] },
-            "description": "File a new tax declaration for the given ACTIVITY ID. The manager is resolved through the (mocked) Person service."
+            "description": "File a new tax declaration. `employeeUuid` must be a UUID assigned to the activity in ACTIVITIES_EMPLOYEES. The system validates this locally (no external microservice call)."
           },
           "event": [
             {
@@ -253,13 +320,16 @@
           "name": "PATCH /tax/:id",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"payed\": true,\n  \"elapsedDays\": 10\n}"
             },
             "url": { "raw": "{{base_url}}/tax/{{tax_id}}", "host": ["{{base_url}}"], "path": ["tax", "{{tax_id}}"] },
-            "description": "Partial update of a tax declaration. All four fields (earnings, expenses, payed, elapsedDays) are optional; at least one is required. A literal 0 is a valid value (NOT a 'no change' sentinel): omit the field to keep the persisted value. The derived fields (revenue, taxRate, taxAmount, elapsedBillAmount, taxableIncome) are always recomputed from the merged state."
+            "description": "Partial update of a tax declaration. All four fields (earnings, expenses, payed, elapsedDays) are optional; at least one is required."
           }
         }
       ]

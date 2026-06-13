@@ -37,6 +37,10 @@ const envSchema = z.object({
   DB_NAME: z.string().min(1),
   DB_CONNECTION_LIMIT: z.coerce.number().int().positive().default(10),
 
+  PERSON_SERVICE_URL: z.string().url().default('http://localhost:8082'),
+
+  JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info')
 });
 

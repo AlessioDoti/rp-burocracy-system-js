@@ -49,28 +49,36 @@ INSERT IGNORE INTO ACTIVITY (id, NAME, ADDRESS, CATEGORY_ID) VALUES
     (4, 'Consulting LLC',    50, 3);
 
 -- ---------------------------------------------------------------------------
+-- Activity employees (links person UUIDs to activities)
+-- ---------------------------------------------------------------------------
+INSERT IGNORE INTO ACTIVITIES_EMPLOYEES (ACTIVITY_ID, EMPLOYEE_UID, ROLE) VALUES
+    (1, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'manager'),
+    (1, 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'employee'),
+    (3, 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'manager');
+
+-- ---------------------------------------------------------------------------
 -- Sample tax declarations
 -- ---------------------------------------------------------------------------
 INSERT IGNORE INTO TAX (
-    id, ACTIVITY_ID, MANAGER_NAME, MANAGER_SURNAME, MANAGER_ROLE,
+    id, ACTIVITY_ID, PERSON_UUID,
     EXPENSES, EARNINGS, REVENUE, TAX_AMOUNT,
     ELAPSED_DAYS, ELAPSED_BILL_AMOUNT, TAXABLE_INCOME,
     DECLARATION_DATE, PAYED
 ) VALUES
     -- Shop 1, low bracket, already paid. taxableIncome = 300 × 10 / 100 = 30;
     -- taxAmount = 30 + 0 = 30 (no late-filing penalty).
-    (1, 1, 'Alessio', 'Doti',  'MANAGER',
+    (1, 1, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
         200,  500,  300,   30, 0, 0, 30,
         NOW() - INTERVAL 30 DAY, 1),
 
     -- Shop 1, mid bracket, already paid. taxableIncome = 900 × 15 / 100 = 135;
     -- taxAmount = 135 + 0 = 135.
-    (2, 1, 'Alessio', 'Doti',  'MANAGER',
+    (2, 1, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
         300, 1200,  900,  135, 0, 0, 135,
         NOW() - INTERVAL 15 DAY, 1),
 
     -- Factory, higher bracket, not yet paid. taxableIncome = 7000 × 12 / 100 = 840;
     -- taxAmount = 840 + 0 = 840.
-    (3, 3, 'Mario',   'Rossi', 'MANAGER',
+    (3, 3, 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
        1000, 8000, 7000,  840, 0, 0, 840,
         NOW() - INTERVAL 7  DAY, 0);

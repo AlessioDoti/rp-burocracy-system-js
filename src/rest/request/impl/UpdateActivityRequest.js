@@ -1,36 +1,25 @@
 /**
- * @fileoverview Request body for `PATCH /activities/:id`.
+ * @fileoverview Request body for `PATCH /activity/:id`.
  *
- * All three mutable fields are optional, so callers can update just
- * one of them. The handler validates the resulting patch with the
- * `activityPatchSchema` (defined alongside the ActivityDTO), which
- * enforces that at least one field is present.
- *
- * The `category` field carries the category primary key (a number);
- * the handler resolves it into a `CategoryDTO` and attaches it to the
- * patch as `category` before delegating to `ActivityService`.
+ * In addition to the mutable activity fields (`name`, `address`,
+ * `category`), the PATCH accepts an `employees` array that fully
+ * **replaces** the previous employee list for the activity.
  *
  * Unlike `InsertActivityRequest`, this class does **not** extend
  * `BaseActivityRequest`. The base sets `address = 0` as a default,
- * which is fine for inserts (the DTO has its own default that
- * preserves the value) but would silently overwrite the activity's
- * address on every PATCH that omits the field. Sticking to
- * `undefined` for missing fields is what makes PATCH semantics
- * (partial update) work.
+ * which would silently overwrite the activity's address on every
+ * PATCH that omits the field. Sticking to `undefined` for missing
+ * fields is what makes PATCH semantics (partial update) work.
  */
 
 /**
  * @class UpdateActivityRequest
  * @classdesc Activity patch payload. Every field is optional:
  *
- * - `name` — when present, replaces the activity name
- * - `address` — when present, replaces the numeric address
- * - `category` — when present, is the **primary key** of the new
- *   CATEGORY row. The handler resolves it into a `CategoryDTO`.
- * - `managementIds` — reserved for future use
- *
- * The request carries the field under the name `category` (matching
- * the public body shape) — not `categoryId`.
+ * - `name` — replaces the activity name
+ * - `address` — replaces the numeric address
+ * - `category` — primary key of the new CATEGORY row (resolved by handler)
+ * - `employees` — replaces the full employee list with the given array
  */
 export class UpdateActivityRequest {
   /**
@@ -38,17 +27,17 @@ export class UpdateActivityRequest {
    *   name?: string,
    *   address?: number,
    *   category?: number|null,
-   *   managementIds?: number[]
+   *   employees?: Array<{ employeeUuid: string, role: string }>
    * }} [props]
    */
-  constructor({ name, address, category, managementIds } = {}) {
+  constructor({ name, address, category, employees } = {}) {
     /** @type {string|undefined} */
     this.name = name;
     /** @type {number|undefined} */
     this.address = address;
     /** @type {number|null|undefined} */
     this.category = category;
-    /** @type {number[]} */
-    this.managementIds = managementIds || [];
+    /** @type {Array<{ employeeUuid: string, role: string }>|undefined} */
+    this.employees = employees;
   }
 }

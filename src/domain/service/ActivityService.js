@@ -2,9 +2,7 @@
  * @fileoverview Domain service for the Activity aggregate.
  *
  * Owns validation of incoming activity payloads and orchestrates the
- * ActivityPersistenceService. Translation between HTTP-shaped request
- * objects and domain DTOs is performed by the request handler in
- * `domain/requesthandler/`, never by this service.
+ * ActivityPersistenceService.
  */
 
 import { ValidatingService } from './ValidatingService.js';
@@ -19,7 +17,6 @@ import { NotFoundError } from '../error/AppError.js';
 export class ActivityService extends ValidatingService {
   /**
    * @param {import('../port/persistence/ActivityPersistenceService.js').ActivityPersistenceService} activityPersistenceService
-   *   Persistence port to delegate reads and writes to.
    */
   constructor(activityPersistenceService) {
     super(activityValidationSchema);
@@ -28,22 +25,25 @@ export class ActivityService extends ValidatingService {
   }
 
   /**
-   * Looks up an activity by primary key.
-   *
    * @param {number} id
    * @returns {Promise<import('../dto/ActivityDTO.js').ActivityDTO|null>}
-   *   The activity (with its category eager-loaded) or `null` if no
-   *   row matches.
    */
   async findByID(id) {
     return this.activityPersistenceService.findByID(id);
   }
 
   /**
-   * Returns one page of activities, with categories eager-loaded.
+   * Returns all activities linked to an employee UUID.
    *
+   * @param {string} employeeUuid
+   * @returns {Promise<import('../dto/ActivityDTO.js').ActivityDTO[]>}
+   */
+  async findByEmployeeUuid(employeeUuid) {
+    return this.activityPersistenceService.findByEmployeeUuid(employeeUuid);
+  }
+
+  /**
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
-   *   Built by `buildPageable` from query parameters.
    * @returns {Promise<import('../dto/Page.js').Page<import('../dto/ActivityDTO.js').ActivityDTO>>}
    */
   async findAll(pageable) {
@@ -55,7 +55,6 @@ export class ActivityService extends ValidatingService {
    *
    * @param {import('../dto/ActivityDTO.js').ActivityDTO} dto
    * @returns {Promise<import('../dto/ActivityDTO.js').ActivityDTO>}
-   *   The persisted DTO (with `id` populated on insert).
    * @throws {ValidationError} When the DTO fails the Zod schema.
    */
   async insertActivity(dto) {
@@ -64,7 +63,7 @@ export class ActivityService extends ValidatingService {
   }
 
   /**
-   * Deletes an activity by id. No-op when the row does not exist.
+   * Deletes an activity by id.
    *
    * @param {number} id
    * @returns {Promise<void>}
@@ -75,12 +74,8 @@ export class ActivityService extends ValidatingService {
 
   /**
    * Applies a partial update to an existing activity. Only the fields
-   * the caller actually provided (`!== undefined`) are written; the
-   * rest are preserved on the existing row. The patch is assumed to
-   * be request-shape-validated (the `ActivityRequestHandlerImpl` does
-   * that with `activityPatchSchema`) and to carry a resolved
-   * `CategoryDTO` (not a raw id) when `category` is present, so this
-   * method does not re-validate.
+   * the caller provided (`!== undefined`) are written; the rest are
+   * preserved on the existing row.
    *
    * @param {{
    *   name?: string,
@@ -104,5 +99,36 @@ export class ActivityService extends ValidatingService {
     }
 
     return this.activityPersistenceService.saveActivity(found);
+  }
+
+  // -------------------------------------------------------------------------
+  // Employee management — delegates to persistence port
+  // -------------------------------------------------------------------------
+
+  /**
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @returns {Promise<void>}
+   */
+  async addEmployees(activityId, employees) {
+    return this.activityPersistenceService.addEmployees(activityId, employees);
+  }
+
+  /**
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @returns {Promise<void>}
+   */
+  async replaceEmployees(activityId, employees) {
+    return this.activityPersistenceService.replaceEmployees(activityId, employees);
+  }
+
+  /**
+   * @param {number} activityId
+   * @param {string} employeeUuid
+   * @returns {Promise<boolean>}
+   */
+  async hasEmployee(activityId, employeeUuid) {
+    return this.activityPersistenceService.hasEmployee(activityId, employeeUuid);
   }
 }

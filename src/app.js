@@ -11,14 +11,17 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import pinoHttp from 'pino-http';
+import passport from 'passport';
 
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { buildContainer } from './config/container.js';
+import { configurePassport } from './config/passport.js';
 import { createActivityRouter } from './rest/controller/ActivityController.js';
 import { createCategoryRouter } from './rest/controller/CategoryController.js';
 import { createTaxRouter } from './rest/controller/TaxController.js';
 import { globalErrorHandler } from './rest/controller/advice/GlobalResponseEntityExceptionHandler.js';
+import { authenticate } from './rest/middleware/authenticate.js';
 import { ping } from './persistence/db.js';
 
 /**
@@ -40,6 +43,10 @@ export function createApp(overrides = {}) {
   app.use(express.json({ limit: '100kb' }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/health' } }));
 
+  // Initialise Passport with the Bearer JWT strategy
+  app.use(passport.initialize());
+  configurePassport();
+
   /**
    * Liveness + DB readiness probe. Returns 200 when the database
    * answers a `SELECT 1`; returns 503 with the error message otherwise
@@ -54,15 +61,16 @@ export function createApp(overrides = {}) {
     }
   });
 
-  app.use('/activity', createActivityRouter({
+  // All API routes require a valid JWT access token
+  app.use('/activity', authenticate, createActivityRouter({
     factory: container.factories.activityDTOFactory,
     handler: container.handlers.activityRequestHandler
   }));
-  app.use('/category', createCategoryRouter({
+  app.use('/category', authenticate, createCategoryRouter({
     factory: container.factories.categoryDTOFactory,
     handler: container.handlers.categoryRequestHandler
   }));
-  app.use('/tax', createTaxRouter({
+  app.use('/tax', authenticate, createTaxRouter({
     factory: container.factories.taxDTOFactory,
     handler: container.handlers.taxRequestHandler
   }));

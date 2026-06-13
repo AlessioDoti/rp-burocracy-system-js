@@ -16,7 +16,6 @@
 
 import { z } from 'zod';
 import { ActivityDTO } from './ActivityDTO.js';
-import { PersonDTO } from './PersonDTO.js';
 
 /**
  * @class TaxDTO
@@ -24,29 +23,28 @@ import { PersonDTO } from './PersonDTO.js';
  */
 export class TaxDTO {
   /**
-   * @param {{
-   *   activity?: ActivityDTO|null,
-   *   manager?: PersonDTO|null,
-   *   expenses?: number,
-   *   earnings?: number,
-   *   revenue?: number,
-   *   taxAmount?: number,
-   *   elapsedDays?: number,
-   *   elapsedBillAmount?: number,
-   *   taxableIncome?: number,
-   *   declarationDate?: Date|null,
-   *   payed?: boolean,
-   *   taxId?: number|null
-   * }} [props]
-   * @property {ActivityDTO|null} activity           Activity this declaration
-   *                                                is filed for (resolved by
-   *                                                the request handler before
-   *                                                validation).
-   * @property {PersonDTO|null}   manager            Person who filed the
-   *                                                declaration (resolved by
-   *                                                the request handler).
-   * @property {number}           expenses           Declared expenses for the
-   *                                                period.
+ * @param {{
+ *   activity?: ActivityDTO|null,
+ *   manager?: string|null,
+ *   expenses?: number,
+ *   earnings?: number,
+ *   revenue?: number,
+ *   taxAmount?: number,
+ *   elapsedDays?: number,
+ *   elapsedBillAmount?: number,
+ *   taxableIncome?: number,
+ *   declarationDate?: Date|null,
+ *   payed?: boolean,
+ *   taxId?: number|null
+ * }} [props]
+ * @property {ActivityDTO|null} activity           Activity this declaration
+ *                                                is filed for (resolved by
+ *                                                the request handler before
+ *                                                validation).
+ * @property {string|null}      manager            UUID of the employee who
+ *                                                filed the declaration.
+ * @property {number}           expenses           Declared expenses for the
+ *                                                period.
    * @property {number}           earnings           Declared earnings for the
    *                                                period.
    * @property {number}           revenue            `earnings − expenses`
@@ -95,7 +93,7 @@ export class TaxDTO {
   } = {}) {
     /** @type {ActivityDTO|null} */
     this.activity = activity;
-    /** @type {PersonDTO|null} */
+    /** @type {string|null} */
     this.manager = manager;
     /** @type {number} */
     this.expenses = expenses;
@@ -122,14 +120,11 @@ export class TaxDTO {
 
 /**
  * Zod schema used by `TaxService` to validate a TaxDTO before
- * persistence. `activity` and `manager` are required as non-null
- * references; the service is responsible for populating them via the
- * request handler, so by the time the validator runs they should
- * already be set.
+ * persistence. `activity` and `manager` (UUID string) are required.
  *
  * @type {import('zod').ZodType<{
  *   activity: ActivityDTO,
- *   manager: PersonDTO,
+ *   manager: string,
  *   expenses: number,
  *   earnings: number
  * }>}
@@ -138,9 +133,7 @@ export const taxValidationSchema = z.object({
   activity: z
     .any({ required_error: 'Activity must be set' })
     .refine((v) => v !== null && v !== undefined, { message: 'Activity must be set' }),
-  manager: z
-    .any({ required_error: 'Manager must be set' })
-    .refine((v) => v !== null && v !== undefined, { message: 'Manager must be set' }),
+  manager: z.string({ required_error: 'Manager must be set' }).min(1, 'Manager must be set'),
   expenses: z.number({ required_error: 'Expenses must be set', invalid_type_error: 'Expenses must be set' }),
   earnings: z.number({ required_error: 'Earnings must be set', invalid_type_error: 'Earnings must be set' })
 });

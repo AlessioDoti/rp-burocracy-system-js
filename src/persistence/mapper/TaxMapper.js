@@ -1,13 +1,11 @@
 /**
  * @fileoverview Maps between `Tax` (persistence row) and `TaxDTO`
- * (domain object). The Person snapshot is flattened into three scalar
- * columns on the row side and rebuilt into a `PersonDTO` on the DTO
- * side.
+ * (domain object). The person UUID is stored as a scalar column
+ * on the row side and carried as a plain string on the DTO.
  */
 
 import { Tax } from '../entity/Tax.js';
 import { TaxDTO } from '../../domain/dto/TaxDTO.js';
-import { PersonDTO } from '../../domain/dto/PersonDTO.js';
 
 /**
  * @class TaxMapper
@@ -23,9 +21,7 @@ export class TaxMapper {
   }
 
   /**
-   * Domain DTO → persistence entity. The Person DTO is denormalised
-   * into three columns (`managerName`, `managerSurname`,
-   * `managerRole`); a missing `manager` is preserved as `null`s.
+   * Domain DTO → persistence entity.
    *
    * @param {import('../../domain/dto/TaxDTO.js').TaxDTO|null|undefined} dto
    * @returns {Tax|null}
@@ -35,9 +31,7 @@ export class TaxMapper {
     return new Tax({
       id: dto.taxId,
       activity: this.activityMapper.fromDTO(dto.activity),
-      managerName: dto.manager?.name ?? null,
-      managerSurname: dto.manager?.surname ?? null,
-      managerRole: dto.manager?.role ?? null,
+      personUuid: dto.manager ?? null,
       expenses: dto.expenses,
       earnings: dto.earnings,
       revenue: dto.revenue,
@@ -51,8 +45,8 @@ export class TaxMapper {
   }
 
   /**
-   * Persistence entity → domain DTO. The three manager columns are
-   * reassembled into a `PersonDTO`.
+   * Persistence entity → domain DTO. The person UUID is carried as a
+   * plain string in the `manager` field.
    *
    * @param {Tax|null|undefined} entity
    * @returns {import('../../domain/dto/TaxDTO.js').TaxDTO|null}
@@ -62,11 +56,7 @@ export class TaxMapper {
     return new TaxDTO({
       taxId: entity.id,
       activity: this.activityMapper.toDTO(entity.activity),
-      manager: new PersonDTO({
-        name: entity.managerName,
-        surname: entity.managerSurname,
-        role: entity.managerRole
-      }),
+      manager: entity.personUuid,
       expenses: entity.expenses,
       earnings: entity.earnings,
       revenue: entity.revenue,

@@ -2,8 +2,7 @@
  * @fileoverview Use-case port for the Activity aggregate.
  *
  * Sits between the REST adapter and the domain services. Resolves
- * related aggregates (the category, the management list) before
- * delegating to the service.
+ * related aggregates (the category) before delegating to the service.
  */
 
 import { ActivityDTO } from '../../dto/ActivityDTO.js';
@@ -29,17 +28,36 @@ export class ActivityRequestHandler {
   /**
    * Inserts a new activity under the given category.
    *
-   * @param {ActivityDTO} dto              Activity payload (the request
-   *                                        handler resolves the category
-   *                                        from `category` and attaches it
-   *                                        before validation).
-   * @param {number} category              Category primary key.
-   * @param {number[]} [_managementIds]    Reserved for future use; the
-   *                                        Person system is still mocked.
+   * @param {ActivityDTO} dto
+   * @param {number} category  Category primary key.
    * @returns {Promise<ActivityDTO>}
    */
   // eslint-disable-next-line no-unused-vars
-  async handleInsert(dto, category, _managementIds) {
+  async handleInsert(dto, category) {
+    throw new Error('Not implemented');
+  }
+
+  /**
+   * Returns all activities linked to an employee UUID.
+   *
+   * @param {string} employeeUuid
+   * @param {{ checkEmployee?: boolean, userId?: number }} [opts]
+   * @returns {Promise<ActivityDTO[]>}
+   */
+  // eslint-disable-next-line no-unused-vars
+  async handleFindByEmployeeUuid(employeeUuid, opts = {}) {
+    throw new Error('Not implemented');
+  }
+
+  /**
+   * Looks up a single activity by primary key.
+   *
+   * @param {number} id
+   * @param {{ checkEmployee?: boolean, userUuid?: string }} [opts]
+   * @returns {Promise<ActivityDTO|null>}
+   */
+  // eslint-disable-next-line no-unused-vars
+  async handleFindByID(id, opts = {}) {
     throw new Error('Not implemented');
   }
 
@@ -55,31 +73,27 @@ export class ActivityRequestHandler {
   }
 
   /**
-   * Applies a partial update to an existing activity.
+   * Applies a partial update to an existing activity. The patch is
+   * the raw request body shape:
    *
-   * The `patch` is a plain object whose fields mirror the request
-   * body:
-   * - `name?: string` — when present, replaces the activity name
-   * - `address?: number` — when present, replaces the numeric address
-   * - `category?: number` — when present, the **primary key** of the
-   *   new CATEGORY row. The implementation looks it up and replaces
-   *   the `category` field with the resolved `CategoryDTO` before
-   *   delegating to the service.
-   *
-   * At least one of the three fields must be present (enforced by
-   * the request-handler-level Zod schema).
-   *
-   * @param {{
-   *   name?: string,
-   *   address?: number,
-   *   category?: number
-   * }} patch           Raw patch (raw `category` id, not a resolved DTO).
+   * - `name?: string`
+   * - `address?: number`
+   * - `category?: number` (primary key, resolved by the implementation)
+ *   - `employees?: [{ employeeUuid, role }]` (replaces the full list;
+ *     each UUID is validated against the person microservice)
+ *
+ * @param {{
+ *   name?: string,
+ *   address?: number,
+ *   category?: number,
+ *   employees?: Array<{ employeeUuid: string, role: string }>
+ * }} patch
    * @param {number} id
-   * @param {number[]} [_managementIds] Reserved for future use.
+   * @param {{ checkEmployee?: boolean, userUuid?: string }} [opts]
    * @returns {Promise<ActivityDTO>}
    */
   // eslint-disable-next-line no-unused-vars
-  async handleUpdate(patch, id, _managementIds) {
+  async handleUpdate(patch, id, opts = {}) {
     throw new Error('Not implemented');
   }
 }

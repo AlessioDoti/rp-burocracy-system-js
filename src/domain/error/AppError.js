@@ -92,6 +92,15 @@ export class ConflictError extends AppError {
  * frontend can decide whether to prompt the user to clean up the
  * references first.
  */
+export class ForbiddenError extends AppError {
+  /**
+   * @param {string} [message='Forbidden']
+   */
+  constructor(message = 'Forbidden') {
+    super(message, { code: 'FORBIDDEN' });
+  }
+}
+
 export class ForeignKeyViolationError extends AppError {
   /**
    * @param {string} message

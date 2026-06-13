@@ -32,6 +32,7 @@ import { translateDbError } from '../../../persistence/errors/dbErrors.js';
 const STATUS_BY_CODE = {
   VALIDATION_ERROR: 400,
   NOT_FOUND: 404,
+  FORBIDDEN: 403,
   CONFLICT: 409,
   FOREIGN_KEY_VIOLATION: 409,
   INTERNAL_ERROR: 500
@@ -80,15 +81,14 @@ export function globalErrorHandler(err, req, res, _next) {
   const translated = translateDbError(err);
   if (translated !== err && translated instanceof AppError) {
     const statusCode = statusFor(translated);
-    logger.warn(
+    logger.error(
       { err: { code: translated.code, message: translated.message, statusCode, details: translated.details } },
-      'Translated DB error'
+      'Database error'
     );
     return res.status(statusCode).json({
       error: {
         code: translated.code,
-        message: translated.message,
-        ...(translated.details ? { details: translated.details } : {})
+        message: 'An unexpected error occurred. Please try again later.'
       }
     });
   }

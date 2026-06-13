@@ -171,9 +171,7 @@ export class TaxRepository {
       await this.pool.query(
         `UPDATE TAX SET
            ACTIVITY_ID = ?,
-           MANAGER_NAME = ?,
-           MANAGER_SURNAME = ?,
-           MANAGER_ROLE = ?,
+           PERSON_UUID = ?,
            EXPENSES = ?,
            EARNINGS = ?,
            REVENUE = ?,
@@ -186,9 +184,7 @@ export class TaxRepository {
          WHERE id = ?`,
         [
           tax.activity?.id ?? null,
-          tax.managerName,
-          tax.managerSurname,
-          tax.managerRole,
+          tax.personUuid,
           tax.expenses,
           tax.earnings,
           tax.revenue,
@@ -206,16 +202,14 @@ export class TaxRepository {
 
     const [result] = await this.pool.query(
       `INSERT INTO TAX (
-         ACTIVITY_ID, MANAGER_NAME, MANAGER_SURNAME, MANAGER_ROLE,
+         ACTIVITY_ID, PERSON_UUID,
          EXPENSES, EARNINGS, REVENUE, TAX_AMOUNT,
          ELAPSED_DAYS, ELAPSED_BILL_AMOUNT, TAXABLE_INCOME,
          DECLARATION_DATE, PAYED
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tax.activity?.id ?? null,
-        tax.managerName,
-        tax.managerSurname,
-        tax.managerRole,
+        tax.personUuid,
         tax.expenses,
         tax.earnings,
         tax.revenue,
@@ -264,9 +258,7 @@ export class TaxRepository {
   _taxSelectSql() {
     return `SELECT t.id                  AS t_id,
                    t.ACTIVITY_ID          AS t_activity_id,
-                   t.MANAGER_NAME         AS t_manager_name,
-                   t.MANAGER_SURNAME      AS t_manager_surname,
-                   t.MANAGER_ROLE         AS t_manager_role,
+                   t.PERSON_UUID          AS t_person_uuid,
                    t.EXPENSES             AS t_expenses,
                    t.EARNINGS             AS t_earnings,
                    t.REVENUE              AS t_revenue,
@@ -449,9 +441,7 @@ export class TaxRepository {
     return new Tax({
       id: toNumber(r.t_id),
       activity,
-      managerName: r.t_manager_name,
-      managerSurname: r.t_manager_surname,
-      managerRole: r.t_manager_role,
+      personUuid: r.t_person_uuid,
       expenses: toNumber(r.t_expenses),
       earnings: toNumber(r.t_earnings),
       revenue: toNumber(r.t_revenue),

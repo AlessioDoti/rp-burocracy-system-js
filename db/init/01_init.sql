@@ -1,11 +1,5 @@
 -- 01_init.sql
 -- Complete database schema for the burocracy system.
--- Run by the Docker entrypoint (alphabetical order). Numeric prefix
--- sorts after anything starting with a letter, so this file is
--- guaranteed to run before 02_populate.sql.
---
--- Every statement is guarded for idempotency so the script can be
--- re-applied to a populated database without errors.
 
 CREATE DATABASE IF NOT EXISTS burocracy
     CHARACTER SET utf8mb4
@@ -34,7 +28,6 @@ CREATE TABLE IF NOT EXISTS CATEGORY_TAXES (
         FOREIGN KEY (CATEGORY_ID) REFERENCES CATEGORY (id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
--- (FK creates an implicit index on CATEGORY_ID; no explicit index needed.)
 
 -- ---------------------------------------------------------------------------
 -- ACTIVITY
@@ -48,18 +41,43 @@ CREATE TABLE IF NOT EXISTS ACTIVITY (
     CONSTRAINT FK_ACTIVITY_CATEGORY
         FOREIGN KEY (CATEGORY_ID) REFERENCES CATEGORY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
--- (FK creates an implicit index on CATEGORY_ID; no explicit index needed.)
 
 -- ---------------------------------------------------------------------------
--- TAX  (cascade on parent activity delete: deleting an activity wipes
--- every tax declaration filed against it)
+-- ACTIVITIES_EMPLOYEES  (many-to-many between ACTIVITY and person UUIDs)
+-- Each employee is identified by their external UUID (from the person
+-- microservice) and assigned a role in the context of the activity.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ACTIVITIES_EMPLOYEES (
+    id            BIGINT       AUTO_INCREMENT PRIMARY KEY,
+    ACTIVITY_ID   BIGINT       NOT NULL,
+    EMPLOYEE_UID  VARCHAR(36)  NOT NULL,
+    ROLE          VARCHAR(50)  NOT NULL,
+    CONSTRAINT FK_AE_ACTIVITY
+        FOREIGN KEY (ACTIVITY_ID) REFERENCES ACTIVITY (id)
+        ON DELETE CASCADE,
+    CONSTRAINT UK_AE_ACTIVITY_EMPLOYEE UNIQUE (ACTIVITY_ID, EMPLOYEE_UID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @idx_ae_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'ACTIVITIES_EMPLOYEES'
+      AND INDEX_NAME   = 'IDX_AE_EMPLOYEE_UID'
+);
+SET @sql_ae := IF(
+    @idx_ae_exists = 0,
+    'CREATE INDEX IDX_AE_EMPLOYEE_UID ON ACTIVITIES_EMPLOYEES (EMPLOYEE_UID)',
+    'SELECT ''index IDX_AE_EMPLOYEE_UID already present, skipping'' AS info'
+);
+PREPARE stmt_ae FROM @sql_ae; EXECUTE stmt_ae; DEALLOCATE PREPARE stmt_ae;
+
+-- ---------------------------------------------------------------------------
+-- TAX  (cascade on parent activity delete)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS TAX (
     id                  BIGINT       AUTO_INCREMENT PRIMARY KEY,
     ACTIVITY_ID         BIGINT       NOT NULL,
-    MANAGER_NAME        VARCHAR(255) NOT NULL,
-    MANAGER_SURNAME     VARCHAR(255) NOT NULL,
-    MANAGER_ROLE        VARCHAR(255) NOT NULL,
+    PERSON_UUID         VARCHAR(36)  NOT NULL,
     EXPENSES            FLOAT        NOT NULL,
     EARNINGS            FLOAT        NOT NULL,
     REVENUE             FLOAT        NOT NULL,
@@ -73,12 +91,9 @@ CREATE TABLE IF NOT EXISTS TAX (
         FOREIGN KEY (ACTIVITY_ID) REFERENCES ACTIVITY (id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
--- (FK creates an implicit index on ACTIVITY_ID; no explicit index needed.)
 
 -- ---------------------------------------------------------------------------
--- TAX.DECLARATION_DATE  (idempotent — only used for ORDER BY in getElapsedDays)
--- Note: MySQL 8 does NOT support "CREATE INDEX IF NOT EXISTS"; the only
--- portable way to make this idempotent is a guarded PREPARE/EXECUTE.
+-- TAX.DECLARATION_DATE index
 -- ---------------------------------------------------------------------------
 SET @idx_exists := (
     SELECT COUNT(*) FROM information_schema.STATISTICS

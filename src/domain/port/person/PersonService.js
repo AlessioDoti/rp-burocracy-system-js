@@ -1,30 +1,37 @@
 /**
  * @fileoverview External port for resolving people.
  *
- * The real Person service is intentionally out of scope for now; this
- * port is implemented in `personmock/` with a placeholder that returns
- * a synthetic PersonDTO. Wiring a real implementation later only
- * requires providing a different `PersonService` to the composition
- * root.
+ * Implemented by an HTTP adapter that calls the rp-person-system
+ * microservice.
  */
 
 import { PersonDTO } from '../../dto/PersonDTO.js';
 
 /**
  * @class PersonService
- * @classdesc Port the domain uses to look up a person given an activity
- * and the person's first name and family name.
+ * @classdesc Port the domain uses to look up people by UUID or
+ * internal userId.
  */
 export class PersonService {
   /**
-   * @param {number} activity  Activity the person is associated with.
-   * @param {string} name      First name.
-   * @param {string} surname   Family name.
-   * @returns {Promise<PersonDTO>} The resolved person; the mock returns
-   *   `{name, surname, role: 'MANAGER'}` regardless of the inputs.
+   * Fetches a person by their external UUID.
+   *
+   * @param {string} uuid External UUID.
+   * @returns {Promise<PersonDTO>}
    */
   // eslint-disable-next-line no-unused-vars
-  async getPersonFromActivityNameAndSurname(activity, name, surname) {
+  async getPersonByUuid(uuid) {
+    throw new Error('Not implemented');
+  }
+
+  /**
+   * Fetches a person by their internal userId.
+   *
+   * @param {number} userId
+   * @returns {Promise<PersonDTO>}
+   */
+  // eslint-disable-next-line no-unused-vars
+  async getPersonByUserId(userId) {
     throw new Error('Not implemented');
   }
 }

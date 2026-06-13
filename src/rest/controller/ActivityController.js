@@ -1,17 +1,12 @@
 /**
  * @fileoverview Express router factory for the `/activity` resource.
- *
- * Each handler follows the same pattern: parse the request body into
- * a typed Request, dispatch it to the DTO factory, hand the DTO to the
- * request handler, and serialise the result. Errors are forwarded to
- * `next()` so the global error middleware can map them to HTTP
- * responses.
  */
 
 import { Router } from 'express';
 import { buildPageable } from '../../domain/dto/Page.js';
-import { InsertActivityRequest } from '../request/impl/InsertActivityRequest.js';
+import { InsertActivityRequest as CreateActivityRequest } from '../request/impl/InsertActivityRequest.js';
 import { UpdateActivityRequest } from '../request/impl/UpdateActivityRequest.js';
+import { requireRole } from '../middleware/requireRole.js';
 
 /**
  * Builds the `/activity` router.
@@ -27,45 +22,45 @@ export function createActivityRouter({ factory, handler }) {
 
   /**
    * `POST /activity/:categoryId` — create a new activity under the
-   * given category.
+   * given category, optionally with employees.
    */
-  router.post('/:categoryId', async (req, res, next) => {
+  router.post('/:categoryId', requireRole('ADMIN'), async (req, res, next) => {
     try {
       const body = req.body || {};
-      const insertReq = new InsertActivityRequest({
+      const insertReq = new CreateActivityRequest({
         name: body.name,
         address: body.address,
-        managementIds: body.managementIds || []
+        employees: body.employees || []
       });
       const dto = factory.getDTO(insertReq);
-      const result = await handler.handleInsert(dto, Number(req.params.categoryId), insertReq.managementIds);
-      res.status(200).json(result);
+      const result = await handler.handleInsert(dto, Number(req.params.categoryId));
+      res.status(201).json(result);
     } catch (err) {
       next(err);
     }
   });
 
   /**
-   * `PATCH /activity/:id` — partial update of the mutable fields.
-   * The body uses the same key for the category as the rest of the
-   * API (`category`, the primary key); the handler resolves it.
-   * Every field is optional, but at least one must be present.
+   * `PATCH /activity/:id` — partial update of the mutable fields and
+   * employee add/remove. At least one field must be present.
+   * ACTIVITY_MANAGER must be an employee of the activity.
    */
-  router.patch('/:id', async (req, res, next) => {
+  router.patch('/:id', requireRole('ADMIN', 'ACTIVITY_MANAGER'), async (req, res, next) => {
     try {
       const body = req.body || {};
       const updateReq = new UpdateActivityRequest({
         name: body.name,
         address: body.address,
         category: body.category,
-        managementIds: body.managementIds || []
+        employees: body.employees
       });
       const patch = factory.getDTO(updateReq);
-      const result = await handler.handleUpdate(
-        patch,
-        Number(req.params.id),
-        updateReq.managementIds
-      );
+      const roles = /** @type {string[]} */ (req.user.roles || []);
+      const checkEmployee = roles.includes('ACTIVITY_MANAGER') && !roles.includes('ADMIN') && !roles.includes('GOVERNMENT');
+      const result = await handler.handleUpdate(patch, Number(req.params.id), {
+        checkEmployee,
+        userId: /** @type {number} */ (req.user.userId)
+      });
       res.status(200).json(result);
     } catch (err) {
       next(err);
@@ -73,10 +68,9 @@ export function createActivityRouter({ factory, handler }) {
   });
 
   /**
-   * `GET /activity` — list a page of activities. Query parameters
-   * `page`, `size`, and `sort` (e.g. `sort=name,asc`) are honoured.
+   * `GET /activity` — list a page of activities.
    */
-  router.get('/', async (req, res, next) => {
+  router.get('/', requireRole('ADMIN', 'GOVERNMENT'), async (req, res, next) => {
     try {
       const pageable = buildPageable(req.query);
       const page = await handler.handleFindAll(pageable);
@@ -87,12 +81,52 @@ export function createActivityRouter({ factory, handler }) {
   });
 
   /**
+   * `GET /activity/employee/:uuid` — activities linked to an employee.
+   * ACTIVITY_MANAGER can only see their own employee record.
+   * Must be defined BEFORE the `/:id` catch-all.
+   */
+  router.get('/employee/:uuid', requireRole('ADMIN', 'GOVERNMENT', 'ACTIVITY_MANAGER'), async (req, res, next) => {
+    try {
+      const roles = /** @type {string[]} */ (req.user.roles || []);
+      const checkEmployee = roles.includes('ACTIVITY_MANAGER') && !roles.includes('ADMIN') && !roles.includes('GOVERNMENT');
+      const dtos = await handler.handleFindByEmployeeUuid(req.params.uuid, {
+        checkEmployee,
+        userId: /** @type {number} */ (req.user.userId)
+      });
+      res.status(200).json(dtos);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * `GET /activity/:id` — single activity by id.
+   * ACTIVITY_MANAGER must be an employee of the activity.
+   */
+  router.get('/:id', requireRole('ADMIN', 'GOVERNMENT', 'ACTIVITY_MANAGER'), async (req, res, next) => {
+    try {
+      const roles = /** @type {string[]} */ (req.user.roles || []);
+      const checkEmployee = roles.includes('ACTIVITY_MANAGER') && !roles.includes('ADMIN') && !roles.includes('GOVERNMENT');
+      const dto = await handler.handleFindByID(Number(req.params.id), {
+        checkEmployee,
+        userId: /** @type {number} */ (req.user.userId)
+      });
+      if (!dto) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+      res.status(200).json(dto);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
    * `DELETE /activity/:id` — delete an activity.
    */
-  router.delete('/:id', async (req, res, next) => {
+  router.delete('/:id', requireRole('ADMIN'), async (req, res, next) => {
     try {
       await handler.handleDelete(Number(req.params.id));
-      res.status(200).send('');
+      res.status(204).end();
     } catch (err) {
       next(err);
     }

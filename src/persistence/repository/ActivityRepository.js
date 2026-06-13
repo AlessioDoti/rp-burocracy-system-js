@@ -1,9 +1,9 @@
 /**
  * @fileoverview SQL repository for the `ACTIVITY` table.
  *
- * Every read eagerly loads the related `CATEGORY` and its
- * `CATEGORY_TAXES` rows, so the domain never sees a half-hydrated
- * aggregate.
+ * Every read eagerly loads the related `CATEGORY`, its
+ * `CATEGORY_TAXES` rows, and the `ACTIVITIES_EMPLOYEES` rows, so the
+ * domain never sees a half-hydrated aggregate.
  *
  * ## Why no JOIN to `CATEGORY_TAXES` in the activity query
  *
@@ -23,10 +23,14 @@
  * the two in JS. The `COUNT(*)` for the total is a third query, run
  * on the bare `ACTIVITY` table so the count is not multiplied by the
  * number of brackets.
+ *
+ * Employees are loaded in yet another batch query (one per page, not
+ * one per row).
  */
 
 import { toNumber, buildOrderBy } from './_helpers.js';
 import { Activity } from '../entity/Activity.js';
+import { ActivityEmployee } from '../entity/ActivityEmployee.js';
 import { Category } from '../entity/Category.js';
 import { CategoryTax } from '../entity/CategoryTax.js';
 
@@ -45,7 +49,7 @@ export class ActivityRepository {
 
   /**
    * Looks up one activity by primary key and eagerly loads its
-   * category and the full bracket set.
+   * category, its brackets, and its employees.
    *
    * @param {number|string} id
    * @returns {Promise<import('../entity/Activity.js').Activity|null>}
@@ -57,13 +61,52 @@ export class ActivityRepository {
     );
     if (activityRows.length === 0) return null;
     const category = await this._loadCategory(activityRows[0].CATEGORY_ID);
-    return this._rowToActivity(activityRows[0], category);
+    const employees = await this._loadEmployeesByActivityId(activityRows[0].id);
+    return this._rowToActivity(activityRows[0], category, employees);
   }
 
   /**
-   * Looks up one activity by unique name. Used by the post-insert
-   * sanity check that wants to surface a friendlier error than the
-   * generic MySQL "Duplicate entry".
+   * Returns every activity an employee (by UUID) is linked to.
+   * Each activity is fully hydrated with its category, brackets,
+   * and the full employee list.
+   *
+   * @param {string} employeeUuid
+   * @returns {Promise<import('../entity/Activity.js').Activity[]>}
+   */
+  async findByEmployeeUuid(employeeUuid) {
+    const [activityRows] = await this.pool.query(
+      `SELECT a.id AS a_id, a.NAME AS a_name, a.ADDRESS AS a_address, a.CATEGORY_ID AS a_category_id
+       FROM ACTIVITY a
+       JOIN ACTIVITIES_EMPLOYEES ae ON ae.ACTIVITY_ID = a.id
+       WHERE ae.EMPLOYEE_UID = ?
+       ORDER BY a.id`,
+      [employeeUuid]
+    );
+
+    if (activityRows.length === 0) return [];
+
+    // Load categories
+    const categoryIds = [
+      ...new Set(activityRows.map((r) => r.a_category_id).filter((id) => id !== null))
+    ];
+    const categoriesById = await this._loadCategoriesByIds(categoryIds);
+
+    // Load employees for all activities
+    const activityIds = activityRows.map((r) => toNumber(r.a_id));
+    const employeesByActivityId = await this._loadEmployeesByActivityIds(activityIds);
+
+    return activityRows.map((r) => {
+      const id = toNumber(r.a_id);
+      const category = r.a_category_id !== null
+        ? categoriesById.get(r.a_category_id) ?? null
+        : null;
+      const employees = employeesByActivityId.get(id) ?? [];
+      return this._rowToActivity(r, category, employees);
+    });
+  }
+
+  /**
+   * Looks up one activity by unique name.
    *
    * @param {string} name
    * @returns {Promise<import('../entity/Activity.js').Activity|null>}
@@ -75,13 +118,12 @@ export class ActivityRepository {
     );
     if (activityRows.length === 0) return null;
     const category = await this._loadCategory(activityRows[0].CATEGORY_ID);
-    return this._rowToActivity(activityRows[0], category);
+    const employees = await this._loadEmployeesByActivityId(activityRows[0].id);
+    return this._rowToActivity(activityRows[0], category, employees);
   }
 
   /**
-   * Returns one page of activities and the total row count. See the
-   * file-level comment for why this is implemented as three queries
-   * instead of a single JOIN.
+   * Returns one page of activities and the total row count.
    *
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
    * @returns {Promise<{ rows: import('../entity/Activity.js').Activity[], total: number }>}
@@ -89,9 +131,6 @@ export class ActivityRepository {
   async findAll(pageable) {
     const { clause } = buildOrderBy(pageable.sort, 'a', ['id', 'name', 'address'], 'ORDER BY a.id DESC');
 
-    // (1) The page of activities. No JOIN to CATEGORY_TAXES: a JOIN
-    // would multiply each activity row by the number of its category's
-    // brackets and break the LIMIT semantics.
     const [activityRows] = await this.pool.query(
       `SELECT a.id AS a_id, a.NAME AS a_name, a.ADDRESS AS a_address, a.CATEGORY_ID AS a_category_id
        FROM ACTIVITY a
@@ -100,9 +139,6 @@ export class ActivityRepository {
       [pageable.size, pageable.offset]
     );
 
-    // (3) Total count, on the bare table so it is not multiplied by
-    // bracket count. We always run this so the caller can compute
-    // `totalPages` even on an empty page.
     const [countRows] = await this.pool.query('SELECT COUNT(*) AS total FROM ACTIVITY');
     const total = toNumber(countRows[0].total);
 
@@ -110,45 +146,151 @@ export class ActivityRepository {
       return { rows: [], total };
     }
 
-    // (2) Categories and brackets for the activities in the page.
-    // Deduplicate the FK list so a category shared by many activities
-    // is fetched only once.
+    // Load categories
     const categoryIds = [
       ...new Set(activityRows.map((r) => r.a_category_id).filter((id) => id !== null))
     ];
     const categoriesById = await this._loadCategoriesByIds(categoryIds);
 
+    // Load employees for all activities in this page
+    const activityIds = activityRows.map((r) => toNumber(r.a_id));
+    const employeesByActivityId = await this._loadEmployeesByActivityIds(activityIds);
+
     const entities = activityRows.map((r) => {
+      const id = toNumber(r.a_id);
       const category = r.a_category_id !== null
         ? categoriesById.get(r.a_category_id) ?? null
         : null;
-      return this._rowToActivity(r, category);
+      const employees = employeesByActivityId.get(id) ?? [];
+      return this._rowToActivity(r, category, employees);
     });
     return { rows: entities, total };
   }
 
   /**
    * Inserts a new row when `activity.id` is `null`/`undefined`,
-   * otherwise updates the existing one. Always reloads the row before
-   * returning so the caller sees the canonical post-write state.
+   * otherwise updates the existing one. Also persists the employee
+   * list on insert.
    *
    * @param {import('../entity/Activity.js').Activity} activity
    * @returns {Promise<import('../entity/Activity.js').Activity>}
    */
   async save(activity) {
-    if (activity.id) {
-      await this.pool.query(
-        'UPDATE ACTIVITY SET NAME = ?, ADDRESS = ?, CATEGORY_ID = ? WHERE id = ?',
-        [activity.name, activity.address, activity.category?.id ?? null, activity.id]
-      );
-      return this.findById(activity.id);
-    }
+    const conn = await this.pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    const [result] = await this.pool.query(
-      'INSERT INTO ACTIVITY (NAME, ADDRESS, CATEGORY_ID) VALUES (?, ?, ?)',
-      [activity.name, activity.address, activity.category?.id ?? null]
+      if (activity.id) {
+        await conn.query(
+          'UPDATE ACTIVITY SET NAME = ?, ADDRESS = ?, CATEGORY_ID = ? WHERE id = ?',
+          [activity.name, activity.address, activity.category?.id ?? null, activity.id]
+        );
+        await conn.commit();
+        return this.findById(activity.id);
+      }
+
+      const [result] = await conn.query(
+        'INSERT INTO ACTIVITY (NAME, ADDRESS, CATEGORY_ID) VALUES (?, ?, ?)',
+        [activity.name, activity.address, activity.category?.id ?? null]
+      );
+      const insertId = result.insertId;
+
+      // Persist employees
+      if (activity.employees && activity.employees.length > 0) {
+        await this._insertEmployees(conn, insertId, activity.employees);
+      }
+
+      await conn.commit();
+      return this.findById(insertId);
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Employee-specific operations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Adds employees to an activity. Ignores duplicates (activity + uuid).
+   *
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @returns {Promise<void>}
+   */
+  async addEmployees(activityId, employees) {
+    if (!employees || employees.length === 0) return;
+    const conn = await this.pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await this._insertEmployees(conn, activityId, employees);
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+
+  /**
+   * Removes employees from an activity by UUID.
+   *
+   * @param {number} activityId
+   * @param {string[]} employeeUuids
+   * @returns {Promise<void>}
+   */
+  async removeEmployees(activityId, employeeUuids) {
+    if (!employeeUuids || employeeUuids.length === 0) return;
+    const placeholders = employeeUuids.map(() => '?').join(',');
+    await this.pool.query(
+      `DELETE FROM ACTIVITIES_EMPLOYEES WHERE ACTIVITY_ID = ? AND EMPLOYEE_UID IN (${placeholders})`,
+      [activityId, ...employeeUuids]
     );
-    return this.findById(result.insertId);
+  }
+
+  /**
+   * Replaces the entire employee list for an activity. Deletes all
+   * existing rows and inserts the new set in a single transaction.
+   *
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @returns {Promise<void>}
+   */
+  async replaceEmployees(activityId, employees) {
+    const conn = await this.pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query('DELETE FROM ACTIVITIES_EMPLOYEES WHERE ACTIVITY_ID = ?', [activityId]);
+      if (employees && employees.length > 0) {
+        await this._insertEmployees(conn, activityId, employees);
+      }
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+
+  /**
+   * Checks whether a given employee UUID is currently assigned to an
+   * activity.
+   *
+   * @param {number} activityId
+   * @param {string} employeeUuid
+   * @returns {Promise<boolean>}
+   */
+  async hasEmployee(activityId, employeeUuid) {
+    const [rows] = await this.pool.query(
+      'SELECT 1 FROM ACTIVITIES_EMPLOYEES WHERE ACTIVITY_ID = ? AND EMPLOYEE_UID = ? LIMIT 1',
+      [activityId, employeeUuid]
+    );
+    return rows.length > 0;
   }
 
   /**
@@ -160,13 +302,8 @@ export class ActivityRepository {
   }
 
   /**
-   * Deletes an activity **and** every tax declaration filed against
-   * it, in a single transaction so the operation is atomic even on
-   * schemas that do not declare `ON DELETE CASCADE` on `FK_TAX_ACTIVITY`.
-   *
-   * The two statements are issued on the same pooled connection with
-   * an explicit `BEGIN`/`COMMIT` (and `ROLLBACK` on error). No
-   * application-level ordering is required from the caller.
+   * Cascading delete that removes employees, taxes, and the activity
+   * itself in a single transaction.
    *
    * @param {number|string} id
    * @returns {Promise<void>}
@@ -176,6 +313,7 @@ export class ActivityRepository {
     try {
       await conn.beginTransaction();
       try {
+        await conn.query('DELETE FROM ACTIVITIES_EMPLOYEES WHERE ACTIVITY_ID = ?', [id]);
         await conn.query('DELETE FROM TAX WHERE ACTIVITY_ID = ?', [id]);
         await conn.query('DELETE FROM ACTIVITY WHERE id = ?', [id]);
         await conn.commit();
@@ -188,15 +326,11 @@ export class ActivityRepository {
     }
   }
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Private helpers
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
 
   /**
-   * Loads one category (with its full bracket set) by id. Returns
-   * `null` when `categoryId` is `null` or when no such category
-   * exists.
-   *
    * @param {number|null} categoryId
    * @returns {Promise<Category|null>}
    * @private
@@ -215,10 +349,6 @@ export class ActivityRepository {
   }
 
   /**
-   * Loads many categories (each with its full bracket set) in one
-   * round-trip. The result is keyed by category id; missing ids are
-   * simply absent from the map.
-   *
    * @param {number[]} categoryIds
    * @returns {Promise<Map<number, Category>>}
    * @private
@@ -254,10 +384,6 @@ export class ActivityRepository {
   }
 
   /**
-   * Builds a `Category` entity from the denormalised rows produced by
-   * the CATEGORY ⨝ CATEGORY_TAXES LEFT JOIN. All rows share the same
-   * `c.id` / `c.NAME`; the only variation is `ct.*`.
-   *
    * @param {Array<object>} rows
    * @returns {Category}
    * @private
@@ -283,20 +409,91 @@ export class ActivityRepository {
   }
 
   /**
-   * Combines an activity row with its (already-loaded) category into
-   * an `Activity` entity.
-   *
    * @param {{ id: *, NAME: string, ADDRESS: *, CATEGORY_ID: * }} row
    * @param {Category|null} category
+   * @param {ActivityEmployee[]} employees
    * @returns {Activity}
    * @private
    */
-  _rowToActivity(row, category) {
+  _rowToActivity(row, category, employees = []) {
     return new Activity({
       id: toNumber(row.id ?? row.a_id),
       name: row.NAME ?? row.a_name,
       address: toNumber(row.ADDRESS ?? row.a_address),
-      category
+      category,
+      employees
     });
+  }
+
+  /**
+   * Loads employees for a single activity.
+   *
+   * @param {number} activityId
+   * @returns {Promise<ActivityEmployee[]>}
+   * @private
+   */
+  async _loadEmployeesByActivityId(activityId) {
+    const [rows] = await this.pool.query(
+      'SELECT id, ACTIVITY_ID, EMPLOYEE_UID, ROLE FROM ACTIVITIES_EMPLOYEES WHERE ACTIVITY_ID = ?',
+      [activityId]
+    );
+    return rows.map((r) => new ActivityEmployee({
+      id: toNumber(r.id),
+      activityId: toNumber(r.ACTIVITY_ID),
+      employeeUuid: r.EMPLOYEE_UID,
+      role: r.ROLE
+    }));
+  }
+
+  /**
+   * Loads employees for multiple activities in one query. Returns a
+   * map keyed by activity id.
+   *
+   * @param {number[]} activityIds
+   * @returns {Promise<Map<number, ActivityEmployee[]>>}
+   * @private
+   */
+  async _loadEmployeesByActivityIds(activityIds) {
+    /** @type {Map<number, ActivityEmployee[]>} */
+    const out = new Map();
+    if (activityIds.length === 0) return out;
+    const placeholders = activityIds.map(() => '?').join(',');
+    const [rows] = await this.pool.query(
+      `SELECT id, ACTIVITY_ID, EMPLOYEE_UID, ROLE FROM ACTIVITIES_EMPLOYEES
+       WHERE ACTIVITY_ID IN (${placeholders})
+       ORDER BY id`,
+      activityIds
+    );
+    for (const r of rows) {
+      const aid = toNumber(r.ACTIVITY_ID);
+      if (!out.has(aid)) out.set(aid, []);
+      out.get(aid).push(new ActivityEmployee({
+        id: toNumber(r.id),
+        activityId: aid,
+        employeeUuid: r.EMPLOYEE_UID,
+        role: r.ROLE
+      }));
+    }
+    return out;
+  }
+
+  /**
+   * Inserts employee rows (batch INSERT IGNORE to skip duplicates).
+   *
+   * @param {import('mysql2/promise').Connection} conn
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @private
+   */
+  async _insertEmployees(conn, activityId, employees) {
+    const values = employees.map(() => '(?, ?, ?)').join(',');
+    const params = [];
+    for (const e of employees) {
+      params.push(activityId, e.employeeUuid, e.role);
+    }
+    await conn.query(
+      `INSERT IGNORE INTO ACTIVITIES_EMPLOYEES (ACTIVITY_ID, EMPLOYEE_UID, ROLE) VALUES ${values}`,
+      params
+    );
   }
 }

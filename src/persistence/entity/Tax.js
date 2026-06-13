@@ -1,10 +1,9 @@
 /**
  * @fileoverview Tax declaration persistence entity.
  *
- * Row shape for the `TAX` table. The `managerName`, `managerSurname`,
- * and `managerRole` fields are denormalised snapshots of the Person
- * service response captured at declaration time — the rest of the row
- * stores the financial data and the computed fields.
+ * Row shape for the `TAX` table. The `personUuid` field stores the
+ * external UUID of the person who filed the declaration — a stable
+ * reference across microservices.
  */
 
 import { Activity } from './Activity.js';
@@ -19,9 +18,7 @@ export class Tax {
    * @param {{
    *   id?: number|null,
    *   activity?: Activity|null,
-   *   managerName?: string|null,
-   *   managerSurname?: string|null,
-   *   managerRole?: string|null,
+   *   personUuid?: string|null,
    *   expenses?: number,
    *   earnings?: number,
    *   revenue?: number,
@@ -34,23 +31,12 @@ export class Tax {
    * }} [props]
    * @property {number|null} id                Surrogate primary key. `null` for not-yet-inserted rows.
    * @property {Activity|null} activity         Owning activity, or `null` when not yet loaded.
-   * @property {string|null} managerName        Snapshot of the manager's first name at declaration time.
-   * @property {string|null} managerSurname     Snapshot of the manager's family name at declaration time.
-   * @property {string|null} managerRole        Snapshot of the manager's role at declaration time.
+   * @property {string|null} personUuid         External UUID of the person who filed the declaration.
    * @property {number}      expenses           Declared expenses for the period.
    * @property {number}      earnings           Declared earnings for the period.
    * @property {number}      revenue            `earnings − expenses`.
-   * @property {number}      taxableIncome      `revenue × rate / 100`,
-   *                                              where `rate` is the highest
-   *                                              CategoryTax bracket with
-   *                                              `amount ≤ revenue`. The rate
-   *                                              itself is **not** persisted —
-   *                                              it is recomputed from the
-   *                                              activity's category brackets
-   *                                              on every read/write.
-   * @property {number}      taxAmount          `taxableIncome + elapsedBillAmount`
-   *                                              (total liability: tax owed
-   *                                              plus late-filing penalty).
+   * @property {number}      taxableIncome      `revenue × rate / 100`.
+   * @property {number}      taxAmount          `taxableIncome + elapsedBillAmount`.
    * @property {number}      elapsedDays        Days elapsed since the previous declaration, minus the 7-day grace period.
    * @property {number}      elapsedBillAmount  `elapsedDays × 15 000`.
    * @property {Date|null}   declarationDate    Timestamp the declaration was filed.
@@ -59,9 +45,7 @@ export class Tax {
   constructor({
     id = null,
     activity = null,
-    managerName = null,
-    managerSurname = null,
-    managerRole = null,
+    personUuid = null,
     expenses = 0,
     earnings = 0,
     revenue = 0,
@@ -74,9 +58,7 @@ export class Tax {
   } = {}) {
     this.id = id;
     this.activity = activity;
-    this.managerName = managerName;
-    this.managerSurname = managerSurname;
-    this.managerRole = managerRole;
+    this.personUuid = personUuid;
     this.expenses = expenses;
     this.earnings = earnings;
     this.revenue = revenue;

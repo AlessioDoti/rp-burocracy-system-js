@@ -1,11 +1,12 @@
 /**
  * @fileoverview Maps between `Activity` (persistence row) and
- * `ActivityDTO` (domain object). Delegated to `CategoryMapper` for
- * the nested category.
+ * `ActivityDTO` (domain object).
  */
 
 import { Activity } from '../entity/Activity.js';
 import { ActivityDTO } from '../../domain/dto/ActivityDTO.js';
+import { ActivityEmployeeDTO } from '../../domain/dto/ActivityEmployeeDTO.js';
+import { ActivityEmployee } from '../entity/ActivityEmployee.js';
 
 /**
  * @class ActivityMapper
@@ -21,9 +22,7 @@ export class ActivityMapper {
   }
 
   /**
-   * Domain DTO → persistence entity. Returns `null` for a falsy input
-   * (the repositories rely on this short-circuit to keep `null`s
-   * flowing through).
+   * Domain DTO → persistence entity.
    *
    * @param {import('../../domain/dto/ActivityDTO.js').ActivityDTO|null|undefined} dto
    * @returns {Activity|null}
@@ -34,14 +33,16 @@ export class ActivityMapper {
       id: dto.id,
       name: dto.name,
       address: dto.address,
-      category: this.categoryMapper.fromDTO(dto.category)
+      category: this.categoryMapper.fromDTO(dto.category),
+      employees: (dto.employees || []).map((e) => new ActivityEmployee({
+        employeeUuid: e.employeeUuid,
+        role: e.role
+      }))
     });
   }
 
   /**
-   * Persistence entity → domain DTO. The DTO's `management` list is
-   * initialised to `[]` because the persistence layer does not store
-   * it (the Person system is still mocked).
+   * Persistence entity → domain DTO.
    *
    * @param {Activity|null|undefined} entity
    * @returns {import('../../domain/dto/ActivityDTO.js').ActivityDTO|null}
@@ -53,7 +54,10 @@ export class ActivityMapper {
       name: entity.name,
       address: entity.address,
       category: this.categoryMapper.toDTO(entity.category),
-      management: []
+      employees: (entity.employees || []).map((e) => new ActivityEmployeeDTO({
+        employeeUuid: e.employeeUuid,
+        role: e.role
+      }))
     });
   }
 }

@@ -31,7 +31,7 @@ import { CategoryRequestHandlerImpl } from '../domain/requesthandler/CategoryReq
 import { ActivityRequestHandlerImpl } from '../domain/requesthandler/ActivityRequestHandlerImpl.js';
 import { TaxRequestHandlerImpl } from '../domain/requesthandler/TaxRequestHandlerImpl.js';
 
-import { PersonServiceImpl } from '../personmock/service/PersonServiceImpl.js';
+import { PersonServiceImpl } from '../api/person/service/PersonServiceImpl.js';
 
 import { ActivityDTOFactory } from '../rest/factory/ActivityDTOFactory.js';
 import { CategoryDTOFactory } from '../rest/factory/CategoryDTOFactory.js';
@@ -65,7 +65,7 @@ import { TaxDTOFactory } from '../rest/factory/TaxDTOFactory.js';
  *     categoryService: import('../domain/service/CategoryService.js').CategoryService,
  *     activityService: import('../domain/service/ActivityService.js').ActivityService,
  *     taxService:      import('../domain/service/TaxService.js').TaxService,
- *     personService:   import('../personmock/service/PersonServiceImpl.js').PersonServiceImpl
+ *     personService:   import('../api/person/service/PersonServiceImpl.js').PersonServiceImpl
  *   },
  *   handlers: {
  *     categoryRequestHandler: import('../domain/requesthandler/CategoryRequestHandlerImpl.js').CategoryRequestHandlerImpl,
@@ -106,16 +106,16 @@ export function buildContainer(overrides = {}) {
   const activityService = overrides.activityService ?? new ActivityService(activityPersistenceService);
   const taxService = overrides.taxService ?? new TaxService(taxPersistenceService);
 
-  // -- External port: Person (mock) ----------------------------------------
+  // -- External port: Person (HTTP adapter) ---------------------------------
   const personService = overrides.personService ?? new PersonServiceImpl();
 
   // -- Request handlers (domain ports) --------------------------------------
   const categoryRequestHandler = overrides.categoryRequestHandler
     ?? new CategoryRequestHandlerImpl(categoryService);
   const activityRequestHandler = overrides.activityRequestHandler
-    ?? new ActivityRequestHandlerImpl(activityService, categoryService);
+    ?? new ActivityRequestHandlerImpl(activityService, categoryService, personService);
   const taxRequestHandler = overrides.taxRequestHandler
-    ?? new TaxRequestHandlerImpl(activityService, personService, taxService);
+    ?? new TaxRequestHandlerImpl(activityService, taxService, personService);
 
   // -- REST factories --------------------------------------------------------
   const activityDTOFactory = overrides.activityDTOFactory ?? new ActivityDTOFactory();

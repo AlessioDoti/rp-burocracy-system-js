@@ -1,9 +1,6 @@
 /**
  * @fileoverview MySQL-backed implementation of the Activity
  * persistence port.
- *
- * Translates between the DTO shape the domain speaks and the row
- * shape the repository speaks.
  */
 
 import { Page } from '../../domain/dto/Page.js';
@@ -60,14 +57,55 @@ export class ActivityPersistenceServiceImpl extends ActivityPersistenceService {
   }
 
   /**
-   * Deletes an activity and every tax declaration filed against it,
-   * atomically. See {@link ActivityRepository.deleteCascadingById} for
-   * the transaction details.
-   *
    * @param {number} id
    * @returns {Promise<void>}
    */
   async deleteActivity(id) {
     return this.activityRepository.deleteCascadingById(id);
+  }
+
+  /**
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @returns {Promise<void>}
+   */
+  async addEmployees(activityId, employees) {
+    return this.activityRepository.addEmployees(activityId, employees);
+  }
+
+  /**
+   * @param {number} activityId
+   * @param {string[]} employeeUuids
+   * @returns {Promise<void>}
+   */
+  async removeEmployees(activityId, employeeUuids) {
+    return this.activityRepository.removeEmployees(activityId, employeeUuids);
+  }
+
+  /**
+   * @param {number} activityId
+   * @param {Array<{ employeeUuid: string, role: string }>} employees
+   * @returns {Promise<void>}
+   */
+  async replaceEmployees(activityId, employees) {
+    return this.activityRepository.replaceEmployees(activityId, employees);
+  }
+
+  /**
+   * @param {string} employeeUuid
+   * @returns {Promise<import('../../domain/dto/ActivityDTO.js').ActivityDTO[]>}
+   */
+  async findByEmployeeUuid(employeeUuid) {
+    const entities = await this.activityRepository.findByEmployeeUuid(employeeUuid);
+    return entities.map((e) => this.activityMapper.toDTO(e));
+  }
+
+  /**
+   * @param {number} activityId
+   * @param {string} employeeUuid
+   * @returns {Promise<boolean>}
+   */
+  async hasEmployee(activityId, employeeUuid) {
+    return this.activityRepository.hasEmployee(activityId, employeeUuid);
   }
 }

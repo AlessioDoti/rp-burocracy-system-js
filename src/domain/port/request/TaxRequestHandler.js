@@ -7,39 +7,41 @@ import { TaxDTO } from '../../dto/TaxDTO.js';
 /**
  * @class TaxRequestHandler
  * @classdesc Use-case port. The REST adapter calls into this; the
- * implementation in `domain/requesthandler/TaxRequestHandlerImpl` is
- * wired to the TaxService, ActivityService, and PersonService.
+ * implementation in `domain/requesthandler/TaxRequestHandlerImpl`
+ * is wired to TaxService and ActivityService.
  */
 export class TaxRequestHandler {
   /**
-   * Inserts a new tax declaration. The activity is resolved by id; the
-   * manager is resolved through the (mocked) Person service.
+   * Inserts a new tax declaration for the given activity.
+   * The `employeeUuid` is validated locally against the activity's
+   * employee list.
    *
-   * @param {TaxDTO} dto             DTO carrying `earnings` and `expenses`.
-   * @param {number} activity        Activity primary key.
-   * @param {string} managerName     Manager's first name.
-   * @param {string} managerSurname  Manager's family name.
+   * @param {TaxDTO} dto
+   * @param {number} activity       Activity primary key.
+   * @param {string} employeeUuid   External UUID of the employee (validated locally).
+   * @param {{ checkEmployee?: boolean, userId?: number }} [opts]
    * @returns {Promise<TaxDTO>}
    */
   // eslint-disable-next-line no-unused-vars
-  async handleInsert(dto, activity, managerName, managerSurname) {
+  async handleInsert(dto, activity, employeeUuid, opts = {}) {
     throw new Error('Not implemented');
   }
 
   /**
-   * Lists the declarations filed against the given activity name.
+   * Lists a page of declarations for the activity with the given name.
    *
-   * @param {string} activity
+   * @param {number|string} activity
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
+   * @param {{ checkEmployee?: boolean, userId?: number }} [opts]
    * @returns {Promise<import('../../dto/Page.js').Page<TaxDTO>>}
    */
   // eslint-disable-next-line no-unused-vars
-  async handleFindByActivity(activity, pageable) {
+  async handleFindByActivity(activity, pageable, opts = {}) {
     throw new Error('Not implemented');
   }
 
   /**
-   * Lists every tax declaration, newest first.
+   * Lists every tax declaration, page by page.
    *
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
    * @returns {Promise<import('../../dto/Page.js').Page<TaxDTO>>}
@@ -50,15 +52,14 @@ export class TaxRequestHandler {
   }
 
   /**
-   * Updates an existing tax declaration. `0` values in the request
-   * mean "leave the existing value untouched".
+   * Updates an existing tax declaration.
    *
-   * @param {TaxDTO} dto
+   * @param {{ earnings?: number, expenses?: number, payed?: boolean, elapsedDays?: number }} patch
    * @param {number} id
    * @returns {Promise<TaxDTO>}
    */
   // eslint-disable-next-line no-unused-vars
-  async handleUpdate(dto, id) {
+  async handleUpdate(patch, id) {
     throw new Error('Not implemented');
   }
 }

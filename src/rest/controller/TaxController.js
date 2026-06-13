@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { buildPageable } from '../../domain/dto/Page.js';
 import { InsertTaxRequest } from '../request/impl/InsertTaxRequest.js';
 import { UpdateTaxRequest } from '../request/impl/UpdateTaxRequest.js';
+import { requireRole } from '../middleware/requireRole.js';
 
 /**
  * Builds the `/tax` router.
@@ -21,24 +22,25 @@ export function createTaxRouter({ factory, handler }) {
 
   /**
    * `POST /tax/:activity` — file a new declaration for the activity
-   * with the given id. The manager is resolved by `managerName` and
-   * `managerSurname`.
+   * with the given id. The employee is identified by `employeeUuid`,
+   * which is validated locally against the activity's employee list.
    */
-  router.post('/:activity', async (req, res, next) => {
+  router.post('/:activity', requireRole('ADMIN', 'GOVERNMENT', 'ACTIVITY_MANAGER'), async (req, res, next) => {
     try {
       const body = req.body || {};
       const insertReq = new InsertTaxRequest({
         earnings: body.earnings,
         expenses: body.expenses,
-        managerName: body.managerName,
-        managerSurname: body.managerSurname
+        employeeUuid: body.employeeUuid
       });
       const dto = factory.getDTO(insertReq);
+      const roles = /** @type {string[]} */ (req.user.roles || []);
+      const checkEmployee = roles.includes('ACTIVITY_MANAGER') && !roles.includes('ADMIN') && !roles.includes('GOVERNMENT');
       const result = await handler.handleInsert(
         dto,
         Number(req.params.activity),
-        insertReq.managerName,
-        insertReq.managerSurname
+        insertReq.employeeUuid,
+        { checkEmployee, userId: /** @type {number} */ (req.user.userId) }
       );
       res.status(200).json(result);
     } catch (err) {
@@ -49,11 +51,17 @@ export function createTaxRouter({ factory, handler }) {
   /**
    * `GET /tax/:activity` — list a page of declarations for the
    * activity with the given name.
+   * ACTIVITY_MANAGER must be an employee of the activity.
    */
-  router.get('/:activity', async (req, res, next) => {
+  router.get('/:activity', requireRole('ADMIN', 'GOVERNMENT', 'ACTIVITY_MANAGER'), async (req, res, next) => {
     try {
       const pageable = buildPageable(req.query);
-      const page = await handler.handleFindByActivity(req.params.activity, pageable);
+      const roles = /** @type {string[]} */ (req.user.roles || []);
+      const checkEmployee = roles.includes('ACTIVITY_MANAGER') && !roles.includes('ADMIN') && !roles.includes('GOVERNMENT');
+      const page = await handler.handleFindByActivity(req.params.activity, pageable, {
+        checkEmployee,
+        userId: /** @type {number} */ (req.user.userId)
+      });
       res.status(200).json(page.toJSON());
     } catch (err) {
       next(err);
@@ -61,11 +69,9 @@ export function createTaxRouter({ factory, handler }) {
   });
 
   /**
-   * `PATCH /tax/:id` — update an existing declaration. `0` values for
-   * `earnings`, `expenses`, and `elapsedDays` are treated as "no
-   * change" by the service.
+   * `PATCH /tax/:id` — update an existing declaration.
    */
-  router.patch('/:id', async (req, res, next) => {
+  router.patch('/:id', requireRole('ADMIN', 'GOVERNMENT'), async (req, res, next) => {
     try {
       const body = req.body || {};
       const updateReq = new UpdateTaxRequest({
@@ -85,7 +91,7 @@ export function createTaxRouter({ factory, handler }) {
   /**
    * `GET /tax` — list a page of every declaration, newest first.
    */
-  router.get('/', async (req, res, next) => {
+  router.get('/', requireRole('ADMIN', 'GOVERNMENT'), async (req, res, next) => {
     try {
       const pageable = buildPageable(req.query);
       const page = await handler.handleFindAll(pageable);
