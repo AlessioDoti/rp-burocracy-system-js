@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Use-case port for the Activity aggregate.
  *
  * Sits between the REST adapter and the domain services. Resolves

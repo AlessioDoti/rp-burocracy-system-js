@@ -4,7 +4,6 @@ import { TaxDTO } from '../../../../src/domain/dto/TaxDTO.js';
 import { ActivityDTO } from '../../../../src/domain/dto/ActivityDTO.js';
 import { CategoryDTO } from '../../../../src/domain/dto/CategoryDTO.js';
 import { CategoryTaxDTO } from '../../../../src/domain/dto/CategoryTaxDTO.js';
-import { PersonDTO } from '../../../../src/domain/dto/PersonDTO.js';
 import { NotFoundError, ValidationError } from '../../../../src/domain/error/AppError.js';
 
 const buildPortMock = () => ({
@@ -30,7 +29,7 @@ describe('TaxService', () => {
     const port = buildPortMock();
     const service = new TaxService(port);
 
-    await expect(service.insertTax(new TaxDTO({ manager: new PersonDTO() })))
+    await expect(service.insertTax(new TaxDTO({ manager: '' })))
       .rejects.toBeInstanceOf(ValidationError);
     await expect(service.insertTax(new TaxDTO({ activity: new ActivityDTO() })))
       .rejects.toBeInstanceOf(ValidationError);
@@ -47,7 +46,7 @@ describe('TaxService', () => {
     const service = new TaxService(port);
     const dto = new TaxDTO({
       activity: new ActivityDTO({ id: 1, name: 'shop', address: 0, category: buildCategoryWithTaxes() }),
-      manager: new PersonDTO({ name: 'm', surname: 's' }),
+      manager: 'uuid-mario',
       earnings: 3000,
       expenses: 500
     });
@@ -57,7 +56,7 @@ describe('TaxService', () => {
     // revenue = 3000 - 500 = 2500
     expect(result.revenue).toBe(2500);
     // bracket: amount <= 2500 → highest is 1000@10%.
-    // taxableIncome = 2500 × 10 / 100 = 250.
+
     expect(result.taxableIncome).toBe(250);
     // elapsedDays = 10 - 7 = 3 → bill = 3 * 15000 = 45000.
     expect(result.elapsedDays).toBe(3);
@@ -75,7 +74,7 @@ describe('TaxService', () => {
 
     const dto = new TaxDTO({
       activity: new ActivityDTO({ id: 1, name: 'shop', address: 0, category: new CategoryDTO({ categoryTaxes: [] }) }),
-      manager: new PersonDTO(),
+      manager: 'uuid-person',
       earnings: 100,
       expenses: 0
     });
@@ -89,7 +88,7 @@ describe('TaxService', () => {
     const port = buildPortMock();
     const found = new TaxDTO({
       activity: new ActivityDTO({ id: 1, name: 'shop', category: buildCategoryWithTaxes() }),
-      manager: new PersonDTO({ name: 'a', surname: 'b' }),
+      manager: 'uuid-manager',
       expenses: 500,
       earnings: 2000,
       payed: false,
@@ -100,7 +99,7 @@ describe('TaxService', () => {
     const service = new TaxService(port);
 
     // Only `payed` and `elapsedDays` are in the patch. The others
-    // are not touched.
+
     const result = await service.updateTax({ payed: true, elapsedDays: 10 }, 1);
 
     expect(result.expenses).toBe(500);
@@ -113,7 +112,7 @@ describe('TaxService', () => {
     const port = buildPortMock();
     const found = new TaxDTO({
       activity: new ActivityDTO({ id: 1, name: 'shop', category: buildCategoryWithTaxes() }),
-      manager: new PersonDTO(),
+      manager: 'uuid-manager',
       expenses: 500,
       earnings: 2000,
       payed: true,

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview SQL repository for the `CATEGORY` and `CATEGORY_TAXES`
  * tables.
  *

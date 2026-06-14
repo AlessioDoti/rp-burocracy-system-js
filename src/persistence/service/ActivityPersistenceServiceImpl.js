@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview MySQL-backed implementation of the Activity
  * persistence port.
  */

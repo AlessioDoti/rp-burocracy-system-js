@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Express application factory.
  *
  * Wires the security middleware (`helmet`, `cors`), JSON body
@@ -61,16 +61,26 @@ export function createApp(overrides = {}) {
     }
   });
 
+  // Skip authentication for tests — inject noop middleware instead
+  const authMiddleware = overrides.skipAuth
+    ? (req, _res, next) => {
+        req.user = overrides.skipAuth === true
+          ? { uuid: 'test-uuid', username: 'testuser', roles: ['ADMIN'], userId: 1 }
+          : overrides.skipAuth;
+        next();
+      }
+    : authenticate;
+
   // All API routes require a valid JWT access token
-  app.use('/activity', authenticate, createActivityRouter({
+  app.use('/activity', authMiddleware, createActivityRouter({
     factory: container.factories.activityDTOFactory,
     handler: container.handlers.activityRequestHandler
   }));
-  app.use('/category', authenticate, createCategoryRouter({
+  app.use('/category', authMiddleware, createCategoryRouter({
     factory: container.factories.categoryDTOFactory,
     handler: container.handlers.categoryRequestHandler
   }));
-  app.use('/tax', authenticate, createTaxRouter({
+  app.use('/tax', authMiddleware, createTaxRouter({
     factory: container.factories.taxDTOFactory,
     handler: container.handlers.taxRequestHandler
   }));

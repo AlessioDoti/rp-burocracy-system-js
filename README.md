@@ -9,6 +9,13 @@ the declared expenses and earnings.
 Built as a hexagonal (ports & adapters) Node.js + Express application
 in pure JavaScript. MySQL is the only data store.
 
+## Dependencies
+
+- **MySQL 8.0** — required database.
+- **rp-person-system** (`PERSON_SERVICE_URL`) — the service resolves person names and UUIDs
+  via the person microservice endpoint.
+- **rp-auth-system** — shares `JWT_SECRET` for token verification of incoming requests.
+
 ## Features
 
 - **Hexagonal architecture**: clear separation between the domain, the
@@ -242,37 +249,63 @@ before the first request is served.
 
 ## Running it
 
-### 1. Start MySQL
+### Without Docker
+
+Prerequisito: **MySQL 8.0** in esecuzione (locale o via Docker).
+
+#### 1. Preparare il database
+
+Se si usa Docker solo per MySQL:
 
 ```sh
 cd db
 docker compose -f mysql-burocracy.yml up -d
 ```
 
-This creates the database, applies the full schema (`01_init.sql`),
-and seeds a few rows of mock data (`02_populate.sql`). Both files
-are loaded in ASCII order by the Docker entrypoint; the numeric
-prefixes (`01_`, `02_`) are deliberate and sort in the obvious
-order. Every statement is guarded for idempotency, so re-running
-the scripts against a populated database is safe.
+Questo crea il database `burocracy`, applica `01_init.sql` e carica i dati di esempio (`02_populate.sql`).
 
-### 2. Install deps and start the service
+In alternativa, creare manualmente il database ed eseguire `db/init/01_init.sql` e `db/init/02_populate.sql` su un'istanza MySQL locale.
+
+#### 2. Avviare l'app
 
 ```sh
 cp .env.example .env
+# Modificare .env con i valori corretti per DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, PERSON_SERVICE_URL
 npm install
-npm run dev      # node --watch
-# or
-npm start
+npm run dev      # node --watch (hot reload)
+# oppure
+npm start        # produzione
 ```
 
-Service listens on `PORT` (default `3000`).
+Il servizio ascolta sulla porta configurata (`PORT`, default `3000`).
 
-### 3. Smoke test
+**Nota**: in sviluppo senza Docker, `PERSON_SERVICE_URL` deve puntare al person-service in esecuzione (es. `http://localhost:8082`).
+
+#### 3. Test
 
 ```sh
 curl -s http://localhost:3000/health
 ```
+
+### With Docker (singolo servizio)
+
+```sh
+# MySQL
+docker compose -f db/mysql-burocracy.yml up -d
+
+# Build e avvio dell'app
+docker build -t rp-burocracy .
+docker run -d -p 8081:8081 --network host rp-burocracy
+```
+
+### With Docker (ecosistema completo)
+
+```sh
+# Dalla root del progetto (rp-government-system/)
+docker compose up -d
+```
+
+Questo avvia tutti i microservizi (auth, person, burocracy), i loro database MySQL e il frontend (nginx).
 
 ## Tests
 

@@ -125,8 +125,7 @@ describe('ActivityService', () => {
       const service = new ActivityService(port);
 
       // The patch only carries `name`. The service applies it without
-      // raising a "Category must be set" error (which the insert
-      // schema would otherwise produce).
+
       await expect(service.updateActivity({ name: 'renamed' }, 1))
         .resolves.toBeInstanceOf(ActivityDTO);
       expect(port.saveActivity).toHaveBeenCalledTimes(1);

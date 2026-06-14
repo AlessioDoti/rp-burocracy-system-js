@@ -1,8 +1,8 @@
-/**
+/***
  * @fileoverview Request body for the category endpoints.
  */
 
-/**
+/***
  * @class CategoryRequest
  * @classdesc Used for both insert and update; the controller dispatches
  *   to the same factory and service path.

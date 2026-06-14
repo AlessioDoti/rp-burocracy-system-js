@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Builds an `ActivityDTO` from a request object.
  *
  * The insert path returns a full `ActivityDTO` (with `name`, `address`,
@@ -29,7 +29,7 @@ import { UpdateActivityRequest } from '../request/impl/UpdateActivityRequest.js'
  * }} ActivityUpdatePatch
  */
 
-/**
+/***
  * @class ActivityDTOFactory
  * @classdesc Dispatches between Insert and Update request shapes and
  *   produces the corresponding DTO (or, for updates, a patch).
@@ -50,7 +50,7 @@ export class ActivityDTOFactory {
     throw new Error('Invalid Request, please map a new type of request');
   }
 
-  /**
+  /***
    * @param {import('../request/impl/InsertActivityRequest.js').InsertActivityRequest} request
    * @returns {ActivityDTO}
    */
@@ -64,7 +64,7 @@ export class ActivityDTOFactory {
     });
   }
 
-  /**
+  /***
    * @param {import('../request/impl/UpdateActivityRequest.js').UpdateActivityRequest} request
    * @returns {ActivityUpdatePatch}
    */

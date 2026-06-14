@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Builds a `TaxDTO` from a request object.
  *
  * `instanceof` is the primary discriminator; a `type` string tag is
@@ -32,7 +32,7 @@ export class TaxDTOFactory {
     throw new Error('Invalid Request, please map a new type of request');
   }
 
-  /**
+  /***
    * @param {import('../request/impl/InsertTaxRequest.js').InsertTaxRequest} request
    * @returns {TaxDTO} A DTO carrying only `earnings` and `expenses`; the
    *   request handler fills in the activity, manager, and computed fields.
@@ -44,7 +44,7 @@ export class TaxDTOFactory {
     });
   }
 
-  /**
+  /***
    * @param {import('../request/impl/UpdateTaxRequest.js').UpdateTaxRequest} request
    * @returns {{ earnings?: number, expenses?: number, payed?: boolean, elapsedDays?: number }}
    *   A plain patch object. Fields the client did not send are

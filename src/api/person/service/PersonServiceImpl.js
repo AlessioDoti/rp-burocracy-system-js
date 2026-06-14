@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview HTTP adapter that calls the rp-person-system microservice
  * to resolve people by UUID or internal userId.
  */

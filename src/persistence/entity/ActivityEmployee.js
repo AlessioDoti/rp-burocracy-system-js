@@ -1,8 +1,8 @@
-/**
+/***
  * @fileoverview Activity-Employee relationship persistence entity.
  */
 
-/**
+/***
  * @class ActivityEmployee
  * @classdesc Persistence-layer representation of an ACTIVITIES_EMPLOYEES row.
  */

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Request body for `PATCH /activity/:id`.
  *
  * In addition to the mutable activity fields (`name`, `address`,
@@ -12,7 +12,7 @@
  * fields is what makes PATCH semantics (partial update) work.
  */
 
-/**
+/***
  * @class UpdateActivityRequest
  * @classdesc Activity patch payload. Every field is optional:
  *

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Concrete use-case for the Category aggregate.
  *
  * Thin pass-through to `CategoryService`; no additional orchestration

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Tax declaration persistence entity.
  *
  * Row shape for the `TAX` table. The `personUuid` field stores the

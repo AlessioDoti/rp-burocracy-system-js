@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain service for the Category aggregate.
  *
  * Validates incoming category payloads (which include the nested list

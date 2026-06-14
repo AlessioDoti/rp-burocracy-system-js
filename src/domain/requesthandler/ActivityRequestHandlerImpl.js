@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Concrete use-case for the Activity aggregate.
  *
  * Resolves the category from the request payload and validates

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Typed error hierarchy used by the domain and adapter
  * layers. Each error carries a stable, machine-readable `code` plus an
  * optional structured `details` payload; the HTTP status code is NOT
@@ -7,7 +7,7 @@
  * which keeps the domain free of transport concerns.
  */
 
-/**
+/***
  * @class AppError
  * @classdesc Base class for every error the application is willing to
  * surface to the client. Subclasses set `code`.
@@ -38,7 +38,7 @@ export class AppError extends Error {
   }
 }
 
-/**
+/***
  * @class ValidationError
  * @classdesc Thrown when a DTO fails the Zod schema enforced at the
  * service boundary. The REST layer maps `code: 'VALIDATION_ERROR'`
@@ -55,7 +55,7 @@ export class ValidationError extends AppError {
   }
 }
 
-/**
+/***
  * @class NotFoundError
  * @classdesc Thrown when an update or delete targets a row that does
  * not exist. The REST layer maps `code: 'NOT_FOUND'` to HTTP 404.
@@ -69,7 +69,7 @@ export class NotFoundError extends AppError {
   }
 }
 
-/**
+/***
  * @class ConflictError
  * @classdesc Thrown when a write would violate a uniqueness constraint
  * or another business invariant. The REST layer maps
@@ -84,7 +84,7 @@ export class ConflictError extends AppError {
   }
 }
 
-/**
+/***
  * @class ForeignKeyViolationError
  * @classdesc Thrown when a write would violate a foreign key
  * constraint. The REST layer maps `code: 'FOREIGN_KEY_VIOLATION'`

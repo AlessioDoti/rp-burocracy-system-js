@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Express middleware factory that restricts access by role.
  *
  * Must be used AFTER `authenticate` so that `req.user` is available.

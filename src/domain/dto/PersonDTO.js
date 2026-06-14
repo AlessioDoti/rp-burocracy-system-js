@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain data transfer object for a person.
  *
  * PersonDTO is the only shape the domain ever sees for a person.
@@ -6,7 +6,7 @@
  * microservice. The domain never sees the internal database id.
  */
 
-/**
+/***
  * @class PersonDTO
  * @classdesc Immutable-friendly value object representing a person.
  */
@@ -34,7 +34,7 @@ export class PersonDTO {
     this.birthDate = birthDate;
   }
 
-  /**
+  /***
    * @param {PersonDTO} other
    * @returns {boolean}
    */
@@ -47,7 +47,7 @@ export class PersonDTO {
     );
   }
 
-  /**
+  /***
    * @returns {{ uuid: string|null, name: string|null, surname: string|null, birthDate: string|null }}
    */
   toJSON() {

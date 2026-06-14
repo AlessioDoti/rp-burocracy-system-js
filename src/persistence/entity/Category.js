@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Category persistence entity.
  *
  * Row shape for the `CATEGORY` table plus its one-to-many collection

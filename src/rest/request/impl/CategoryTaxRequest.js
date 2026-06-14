@@ -1,9 +1,9 @@
-/**
+/***
  * @fileoverview Request body for a single tax bracket inside a
  * `CategoryRequest`.
  */
 
-/**
+/***
  * @class CategoryTaxRequest
  * @classdesc One bracket: "if revenue ≥ `amount`, apply rate `rate`".
  */

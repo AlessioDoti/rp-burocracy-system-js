@@ -1,11 +1,11 @@
-/**
+/***
  * @fileoverview Base class for activity request shapes.
  *
  * Carries the common fields: `name`, `address`, and the `employees`
  * list. Subclasses add their own request-specific fields.
  */
 
-/**
+/***
  * @class BaseActivityRequest
  * @classdesc Common ancestor for `InsertActivityRequest` and
  *   `UpdateActivityRequest`.

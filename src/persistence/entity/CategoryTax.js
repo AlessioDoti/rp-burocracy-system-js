@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview CategoryTax persistence entity.
  *
  * Row shape for the `CATEGORY_TAXES` table. Each bracket says: "if

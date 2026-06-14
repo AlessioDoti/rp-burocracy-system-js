@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Global Express error-handling middleware.
  *
  * Maps the typed `AppError` hierarchy (defined in
@@ -46,7 +46,7 @@ function statusFor(err) {
   return STATUS_BY_CODE[err.code] ?? 500;
 }
 
-/**
+/***
  * Express error-handling middleware (4-argument signature).
  *
  * @param {Error & { type?: string, status?: number }} err
@@ -76,8 +76,6 @@ export function globalErrorHandler(err, req, res, _next) {
     return res.status(400).json({ error: { code: 'INVALID_JSON', message: 'Malformed JSON body' } });
   }
 
-  // Translate known DB errors (e.g. duplicate key, FK violation) into
-  // typed AppErrors so they surface as 409/... rather than generic 500s.
   const translated = translateDbError(err);
   if (translated !== err && translated instanceof AppError) {
     const statusCode = statusFor(translated);

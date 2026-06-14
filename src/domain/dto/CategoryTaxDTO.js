@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain data transfer object for a single tax bracket.
  *
  * A CategoryTax is the building block of a category's progressive tax

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview SQL repository for the `ACTIVITY` table.
  *
  * Every read eagerly loads the related `CATEGORY`, its

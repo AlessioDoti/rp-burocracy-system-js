@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview SQL repository for the `TAX` table.
  *
  * Every read eagerly loads the related `ACTIVITY` → `CATEGORY` →
@@ -72,15 +72,14 @@ export class TaxRepository {
 
     // (1) The page of taxes. No JOIN to CATEGORY_TAXES: would
     // multiply each tax row by the number of its activity's category
-    // brackets and break the LIMIT semantics.
+
     const [taxRows] = await this.pool.query(
       this._taxSelectSql() + ` ${clause} LIMIT ? OFFSET ?`,
       [pageable.size, pageable.offset]
     );
 
     // (3) Total count, on the bare table so it is not multiplied by
-    // bracket count. We always run this so the caller can compute
-    // `totalPages` even on an empty page.
+
     const [countRows] = await this.pool.query('SELECT COUNT(*) AS total FROM TAX');
     const total = toNumber(countRows[0].total);
 
@@ -88,9 +87,6 @@ export class TaxRepository {
       return { rows: [], total };
     }
 
-    // (2) Activities + categories + brackets for the activities in
-    // the page. Dedupe the FK list so an activity referenced by many
-    // taxes is fetched only once.
     const activityIds = [
       ...new Set(taxRows.map((r) => r.t_activity_id).filter((id) => id !== null))
     ];
@@ -103,7 +99,7 @@ export class TaxRepository {
     return { rows: entities, total };
   }
 
-  /**
+  /***
    * Returns one page of tax declarations filed against the activity
    * with the given id and the total count.
    *
@@ -129,14 +125,12 @@ export class TaxRepository {
       return { rows: [], total };
     }
 
-    // All taxes in this page are for the same activity → load it
-    // once and reuse the same Activity entity across every tax row.
     const activity = await this._loadActivity(activityId);
     const entities = taxRows.map((r) => this._rowToEntity(r, activity));
     return { rows: entities, total };
   }
 
-  /**
+  /***
    * Returns the most recent declaration date of any tax for the given
    * activity, or `null` when no tax has ever been filed for it. This
    * is a `TAX ⨝ ACTIVITY` 1:1 query — no CATEGORY_TAXES involved —
@@ -159,7 +153,7 @@ export class TaxRepository {
     return toDate(rows[0].DECLARATION_DATE);
   }
 
-  /**
+  /***
    * Inserts a new row or updates an existing one, then reloads it
    * before returning.
    *
@@ -224,7 +218,7 @@ export class TaxRepository {
     return this.findById(result.insertId);
   }
 
-  /**
+  /***
    * @param {number|string} id
    * @returns {Promise<void>}
    */
@@ -232,7 +226,7 @@ export class TaxRepository {
     await this.pool.query('DELETE FROM TAX WHERE id = ?', [id]);
   }
 
-  /**
+  /***
    * Deletes every tax declaration filed against the given activity.
    * The caller is responsible for keeping this call and any activity
    * delete in a single transaction when atomicity is required.
@@ -244,11 +238,7 @@ export class TaxRepository {
     await this.pool.query('DELETE FROM TAX WHERE ACTIVITY_ID = ?', [activityId]);
   }
 
-  // -------------------------------------------------------------------------
-  // Private helpers
-  // -------------------------------------------------------------------------
-
-  /**
+  /***
    * SQL fragment for the TAX rows in a page — no JOINs, every TAX
    * column aliased with a `t_` prefix.
    *
@@ -271,7 +261,7 @@ export class TaxRepository {
             FROM TAX t`;
   }
 
-  /**
+  /***
    * Loads one activity (with its category and the full bracket set) by id.
    * Returns `null` when `activityId` is `null`/`undefined` or no such row
    * exists.
@@ -298,7 +288,7 @@ export class TaxRepository {
     });
   }
 
-  /**
+  /***
    * Loads many activities (each with its category and the full
    * bracket set) in two queries: one for the activities, one for
    * the categories+brackets. The result is keyed by activity id;
@@ -338,7 +328,7 @@ export class TaxRepository {
     return out;
   }
 
-  /**
+  /***
    * Loads one category (with its full bracket set) by id. Returns
    * `null` when `categoryId` is `null`/`undefined` or no such row exists.
    *
@@ -359,7 +349,7 @@ export class TaxRepository {
     return this._rowsToCategory(catRows);
   }
 
-  /**
+  /***
    * Loads many categories (each with its full bracket set) in one
    * round-trip. The result is keyed by category id; missing ids
    * are simply absent from the map.
@@ -398,7 +388,7 @@ export class TaxRepository {
     return out;
   }
 
-  /**
+  /***
    * Builds a `Category` entity from the denormalised rows produced
    * by the CATEGORY ⨝ CATEGORY_TAXES LEFT JOIN. All rows share the
    * same `c.id` / `c.NAME`; the only variation is `ct.*`.
@@ -427,7 +417,7 @@ export class TaxRepository {
     });
   }
 
-  /**
+  /***
    * Combines a TAX row with its (already-loaded) activity into a
    * `Tax` entity. The activity carries the full category+brackets
    * chain, so this mapper no longer reads `c_*` or `ct_*` columns.

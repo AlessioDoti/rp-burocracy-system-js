@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Base class for tax request shapes.
  *
  * `earnings` and `expenses` are the only fields shared between insert
@@ -6,7 +6,7 @@
  * `payed`.
  */
 
-/**
+/***
  * @class BaseTaxRequest
  * @classdesc Common ancestor for `InsertTaxRequest` and
  *   `UpdateTaxRequest`. Exists primarily so the factory can do a

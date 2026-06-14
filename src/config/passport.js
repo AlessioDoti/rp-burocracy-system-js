@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Passport.js Bearer strategy configuration.
  *
  * Validates JWT access tokens issued by the auth-system using the

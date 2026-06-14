@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Use-case port for the Category aggregate.
  */
 

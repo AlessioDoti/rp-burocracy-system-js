@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Application-wide structured logger (Pino).
  *
  * In `production` the logger writes single-line JSON to stdout — the
@@ -31,7 +31,7 @@ const options = {
 
 if (!isProd) {
   // Pretty transport: runs in a worker thread; falls back to JSON if
-  // the optional `pino-pretty` package is not installed.
+
   options.transport = {
     target: 'pino-pretty',
     options: {
@@ -45,7 +45,7 @@ if (!isProd) {
   };
 }
 
-/**
+/***
  * Shared logger instance.
  *
  * - `base.service` is attached to every line so logs from this service

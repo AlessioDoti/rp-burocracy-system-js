@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain data transfer object for an activity (a business).
  */
 

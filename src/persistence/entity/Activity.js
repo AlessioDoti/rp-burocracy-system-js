@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Activity persistence entity.
  */
 

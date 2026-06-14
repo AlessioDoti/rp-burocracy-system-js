@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Generic pagination container and query-string parser.
  *
  * The `Page<T>` value object is what every list endpoint returns. The
@@ -7,7 +7,7 @@
  * defensive bounds and a whitelist for sortable fields.
  */
 
-/**
+/***
  * @template T
  * @class Page
  * @classdesc Immutable-ish view of a single page of results.

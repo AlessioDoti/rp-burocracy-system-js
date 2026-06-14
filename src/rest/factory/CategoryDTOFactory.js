@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Builds a `CategoryDTO` (and the nested tax-bracket
  * DTOs) from a request object.
  */

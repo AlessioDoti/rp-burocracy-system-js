@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview External port for resolving people.
  *
  * Implemented by an HTTP adapter that calls the rp-person-system
@@ -19,18 +19,18 @@ export class PersonService {
    * @param {string} uuid External UUID.
    * @returns {Promise<PersonDTO>}
    */
-  // eslint-disable-next-line no-unused-vars
+
   async getPersonByUuid(uuid) {
     throw new Error('Not implemented');
   }
 
-  /**
+  /***
    * Fetches a person by their internal userId.
    *
    * @param {number} userId
    * @returns {Promise<PersonDTO>}
    */
-  // eslint-disable-next-line no-unused-vars
+
   async getPersonByUserId(userId) {
     throw new Error('Not implemented');
   }

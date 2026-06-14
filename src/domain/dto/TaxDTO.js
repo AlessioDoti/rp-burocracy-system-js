@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain data transfer object for a single tax declaration.
  *
  * A Tax is a periodic declaration filed by the manager of an activity.

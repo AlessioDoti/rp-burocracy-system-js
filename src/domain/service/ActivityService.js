@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain service for the Activity aggregate.
  *
  * Owns validation of incoming activity payloads and orchestrates the

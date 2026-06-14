@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Hand-rolled composition root.
  *
  * Assembles every layer of the application explicitly so that the
@@ -32,6 +32,7 @@ import { ActivityRequestHandlerImpl } from '../domain/requesthandler/ActivityReq
 import { TaxRequestHandlerImpl } from '../domain/requesthandler/TaxRequestHandlerImpl.js';
 
 import { PersonServiceImpl } from '../api/person/service/PersonServiceImpl.js';
+import { env } from './env.js';
 
 import { ActivityDTOFactory } from '../rest/factory/ActivityDTOFactory.js';
 import { CategoryDTOFactory } from '../rest/factory/CategoryDTOFactory.js';
@@ -107,7 +108,7 @@ export function buildContainer(overrides = {}) {
   const taxService = overrides.taxService ?? new TaxService(taxPersistenceService);
 
   // -- External port: Person (HTTP adapter) ---------------------------------
-  const personService = overrides.personService ?? new PersonServiceImpl();
+  const personService = overrides.personService ?? new PersonServiceImpl(env.PERSON_SERVICE_URL);
 
   // -- Request handlers (domain ports) --------------------------------------
   const categoryRequestHandler = overrides.categoryRequestHandler

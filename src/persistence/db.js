@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview MySQL connection pool (singleton) and lifecycle helpers.
  *
  * The pool is created lazily on the first call to {@link getPool}, so

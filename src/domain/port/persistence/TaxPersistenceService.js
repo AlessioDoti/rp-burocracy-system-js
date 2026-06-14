@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Persistence port for the Tax aggregate, plus the
  * "elapsed days" derived query that powers the tax computation.
  */

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain data transfer object for a category.
  *
  * A Category groups activities that share the same tax policy. The
@@ -46,7 +46,7 @@ export class CategoryDTO {
   }
 }
 
-/**
+/***
  * Zod schema used by `CategoryService` to validate a CategoryDTO before
  * persistence. Only `name` is required at the boundary — brackets are
  * validated by the nested schema when present.

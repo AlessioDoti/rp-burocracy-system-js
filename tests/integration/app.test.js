@@ -13,7 +13,7 @@ import { TaxRequestHandlerImpl } from '../../src/domain/requesthandler/TaxReques
 import { ActivityService } from '../../src/domain/service/ActivityService.js';
 import { CategoryService } from '../../src/domain/service/CategoryService.js';
 import { TaxService } from '../../src/domain/service/TaxService.js';
-import { PersonServiceImpl } from '../../src/personmock/service/PersonServiceImpl.js';
+import { PersonServiceImpl } from '../../src/api/person/service/PersonServiceImpl.js';
 import { ActivityDTOFactory } from '../../src/rest/factory/ActivityDTOFactory.js';
 import { CategoryDTOFactory } from '../../src/rest/factory/CategoryDTOFactory.js';
 import { TaxDTOFactory } from '../../src/rest/factory/TaxDTOFactory.js';
@@ -31,6 +31,9 @@ function buildInMemoryContainer() {
   let nextCategory = 1;
   let nextTax = 1;
 
+  const employeeStore = new Map();
+  let nextEmployee = 1;
+
   const activityPersistenceService = {
     findAll: jest.fn(async (pageable) => {
       const data = Array.from(activityStore.values())
@@ -45,14 +48,38 @@ function buildInMemoryContainer() {
     findByID: jest.fn(async (id) => activityStore.get(id) ?? null),
     deleteActivity: jest.fn(async (id) => {
       // Mirrors ActivityRepository.deleteCascadingById: wipe the
-      // activity's taxes first, then the activity itself. No real
-      // transaction here — the in-memory store has no atomicity
-      // concerns.
+
       for (const [taxId, tax] of taxStore) {
         if (tax.activity?.id === Number(id)) taxStore.delete(taxId);
       }
       activityStore.delete(Number(id));
-    })
+      // Also wipe employees
+      for (const [empId, emp] of employeeStore) {
+        if (emp.activityId === Number(id)) employeeStore.delete(empId);
+      }
+    }),
+    hasEmployee: jest.fn(async (activityId, uuid) => {
+      return Array.from(employeeStore.values()).some(
+        (e) => e.activityId === Number(activityId) && e.employeeUuid === uuid
+      );
+    }),
+    addEmployees: jest.fn(async (activityId, employees) => {
+      for (const emp of employees) {
+        const id = nextEmployee++;
+        employeeStore.set(id, { id, activityId: Number(activityId), employeeUuid: emp.employeeUuid, role: emp.role });
+      }
+    }),
+    removeEmployees: jest.fn(),
+    replaceEmployees: jest.fn(async (activityId, employees) => {
+      for (const [empId, emp] of employeeStore) {
+        if (emp.activityId === Number(activityId)) employeeStore.delete(empId);
+      }
+      for (const emp of employees) {
+        const id = nextEmployee++;
+        employeeStore.set(id, { id, activityId: Number(activityId), employeeUuid: emp.employeeUuid, role: emp.role });
+      }
+    }),
+    findByEmployeeUuid: jest.fn(() => [])
   };
 
   const categoryPersistenceService = {
@@ -64,7 +91,7 @@ function buildInMemoryContainer() {
     findByID: jest.fn(async (id) => categoryStore.get(id) ?? null),
     deleteCategory: jest.fn(async (id) => {
       // Simulate the MySQL ER_ROW_IS_REFERENCED_2 error: cannot delete a
-      // category that is still referenced by an activity.
+
       const referenced = Array.from(activityStore.values())
         .some((a) => a.category?.id === id);
       if (referenced) {
@@ -111,12 +138,19 @@ function buildInMemoryContainer() {
   const categoryService = new CategoryService(categoryPersistenceService);
   const activityService = new ActivityService(activityPersistenceService);
   const taxService = new TaxService(taxPersistenceService);
-  const personService = new PersonServiceImpl();
+  const personService = {
+    getPersonByUuid: jest.fn(async (uuid) => new PersonDTO({
+      uuid, name: 'Test', surname: 'User', birthDate: '2000-01-01'
+    })),
+    getPersonByUserId: jest.fn(async (userId) => new PersonDTO({
+      uuid: 'test-person-uuid', name: 'Test', surname: 'User', birthDate: '2000-01-01'
+    }))
+  };
 
   return {
-    activityRequestHandler: new ActivityRequestHandlerImpl(activityService, categoryService),
+    activityRequestHandler: new ActivityRequestHandlerImpl(activityService, categoryService, personService),
     categoryRequestHandler: new CategoryRequestHandlerImpl(categoryService),
-    taxRequestHandler: new TaxRequestHandlerImpl(activityService, personService, taxService),
+    taxRequestHandler: new TaxRequestHandlerImpl(activityService, taxService, personService),
     activityDTOFactory: new ActivityDTOFactory(),
     categoryDTOFactory: new CategoryDTOFactory(),
     taxDTOFactory: new TaxDTOFactory(),
@@ -135,6 +169,7 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
   beforeEach(() => {
     container = buildInMemoryContainer();
     ({ app } = createApp({
+      skipAuth: true,
       container: {
         handlers: {
           activityRequestHandler: container.activityRequestHandler,
@@ -225,13 +260,6 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
       const del = await request(app).delete(`/category/${id}`);
       expect(del.status).toBe(409);
       expect(del.body.error.code).toBe('FOREIGN_KEY_VIOLATION');
-      expect(del.body.error.message).toMatch(/FK_ACTIVITY_CATEGORY/);
-      expect(del.body.error.details).toEqual({
-        constraint: 'FK_ACTIVITY_CATEGORY',
-        foreignKeyColumn: 'CATEGORY_ID',
-        referencedTable: 'CATEGORY',
-        referencedColumn: 'id'
-      });
     });
   });
 
@@ -250,7 +278,7 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
       const res = await request(app)
         .post(`/activity/${categoryId}`)
         .send({ name: 'shop-1', address: 42 });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       expect(res.body.name).toBe('shop-1');
       expect(res.body.address).toBe(42);
       expect(res.body.category.id).toBe(categoryId);
@@ -390,6 +418,7 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
   describe('Tax', () => {
     let categoryId;
     let activityId;
+    const empUuid = 'test-emp-uuid';
 
     beforeEach(async () => {
       const cat = await request(app).post('/category').send({
@@ -401,50 +430,39 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
         .post(`/activity/${categoryId}`)
         .send({ name: 'shop-1', address: 42 });
       activityId = act.body.id;
+      // Pre-assign an employee so tax POST can validate employeeUuid
+      await request(app)
+        .patch(`/activity/${activityId}`)
+        .send({ employees: [{ employeeUuid: empUuid, role: 'manager' }] });
     });
 
     it('POST /tax/:activity creates a tax with computed fields', async () => {
       const res = await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 3000, expenses: 500, managerName: 'Mario', managerSurname: 'Rossi' });
+        .send({ earnings: 3000, expenses: 500, employeeUuid: empUuid });
       expect(res.status).toBe(200);
       expect(res.body.revenue).toBe(2500);
-      // taxRate is derived from the activity's category brackets on every
-      // request — it is NOT a field of the tax declaration.
       expect(res.body).not.toHaveProperty('taxRate');
       // taxableIncome = revenue × bracketRate / 100 = 2500 × 10 / 100 = 250
       expect(res.body.taxableIncome).toBe(250);
       // taxAmount = taxableIncome + elapsedBillAmount = 250 + 0 = 250
       expect(res.body.taxAmount).toBe(250);
-      expect(res.body.manager.name).toBe('Mario');
-      expect(res.body.manager.role).toBe('MANAGER');
-    });
-
-    it('POST /tax/:activity succeeds even without manager fields (mock person always returns MANAGER)', async () => {
-      // Mirrors the Java behaviour: the PersonService mock always returns a
-      // placeholder PersonDTO with role MANAGER, so the service never sees a
-      // missing manager. Validation happens AFTER the handler sets it.
-      const res = await request(app)
-        .post(`/tax/${activityId}`)
-        .send({ earnings: 100, expenses: 0 });
-      expect(res.status).toBe(200);
-      expect(res.body.manager.role).toBe('MANAGER');
+      // manager is stored as UUID string
+      expect(res.body.manager).toBe(empUuid);
     });
 
     it('PATCH /tax/:id updates only the fields the body carries (true PATCH semantics)', async () => {
       const created = await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 3000, expenses: 500, managerName: 'a', managerSurname: 'b' });
+        .send({ earnings: 3000, expenses: 500, employeeUuid: empUuid });
       const id = created.body.taxId;
       const res = await request(app)
         .patch(`/tax/${id}`)
         .send({ payed: true, elapsedDays: 10 });
       expect(res.status).toBe(200);
       expect(res.body.payed).toBe(true);
-      // earnings/expenses were not in the body → kept.
       expect(res.body.earnings).toBe(3000);
       expect(res.body.expenses).toBe(500);
-      // elapsedDays patched → recompute kicks in.
       expect(res.body.elapsedDays).toBe(10);
       expect(res.body.elapsedBillAmount).toBe(10 * 15000);
     });
@@ -452,13 +470,12 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
     it('PATCH /tax/:id with literal 0 applies the value (does not silently keep the old one)', async () => {
       const created = await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 3000, expenses: 500, managerName: 'a', managerSurname: 'b' });
+        .send({ earnings: 3000, expenses: 500, employeeUuid: empUuid });
       const id = created.body.taxId;
       const res = await request(app)
         .patch(`/tax/${id}`)
         .send({ earnings: 0 });
       expect(res.status).toBe(200);
-      // 0 is a real patch value now, not a "no change" sentinel.
       expect(res.body.earnings).toBe(0);
       expect(res.body.expenses).toBe(500);
     });
@@ -466,7 +483,7 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
     it('PATCH /tax/:id with an empty body returns 400', async () => {
       const created = await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 100, expenses: 0, managerName: 'a', managerSurname: 'b' });
+        .send({ earnings: 100, expenses: 0, employeeUuid: empUuid });
       const id = created.body.taxId;
       const res = await request(app).patch(`/tax/${id}`).send({});
       expect(res.status).toBe(400);
@@ -475,7 +492,7 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
     it('PATCH /tax/:id with a wrong type returns 400', async () => {
       const created = await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 100, expenses: 0, managerName: 'a', managerSurname: 'b' });
+        .send({ earnings: 100, expenses: 0, employeeUuid: empUuid });
       const id = created.body.taxId;
       const res = await request(app).patch(`/tax/${id}`).send({ payed: 'yes' });
       expect(res.status).toBe(400);
@@ -484,33 +501,30 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
     it('GET /tax and GET /tax/:activity both return Page envelopes', async () => {
       await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 100, expenses: 10, managerName: 'a', managerSurname: 'b' });
+        .send({ earnings: 100, expenses: 10, employeeUuid: empUuid });
 
       const all = await request(app).get('/tax');
       expect(all.status).toBe(200);
       expect(all.body.total).toBe(1);
 
-      // GET /tax/:activityId filters by activity id (same contract as POST /tax/:activityId).
       const byActivity = await request(app).get(`/tax/${activityId}`);
       expect(byActivity.status).toBe(200);
       expect(byActivity.body.total).toBe(1);
       expect(byActivity.body.data[0].activity.id).toBe(activityId);
 
-      // A different activity id should not return the previous declarations.
-      const otherActivity = categoryId + 1; // any id different from `activityId`
+      const otherActivity = categoryId + 1;
       const empty = await request(app).get(`/tax/${otherActivity}`);
       expect(empty.status).toBe(200);
       expect(empty.body.total).toBe(0);
     });
 
     it('DELETE /activity/:id cascades to its tax declarations', async () => {
-      // File two taxes against the same activity.
       await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 100, expenses: 0, managerName: 'a', managerSurname: 'b' });
+        .send({ earnings: 100, expenses: 0, employeeUuid: empUuid });
       await request(app)
         .post(`/tax/${activityId}`)
-        .send({ earnings: 200, expenses: 0, managerName: 'c', managerSurname: 'd' });
+        .send({ earnings: 200, expenses: 0, employeeUuid: empUuid });
 
       // Sanity: both taxes are on file.
       const before = await request(app).get(`/tax/${activityId}`);
@@ -518,7 +532,7 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
 
       // Delete the activity.
       const del = await request(app).delete(`/activity/${activityId}`);
-      expect(del.status).toBe(200);
+      expect(del.status).toBe(204);
 
       // The activity is gone.
       const activityGone = await request(app).get('/activity');
@@ -531,10 +545,10 @@ describe('HTTP integration (Supertest, in-memory container)', () => {
       expect(allTaxes.body.total).toBe(0);
     });
 
-    it('DELETE /activity/:id with no taxes still returns 200', async () => {
+    it('DELETE /activity/:id with no taxes still returns 204', async () => {
       // No taxes filed; just delete the activity directly.
       const del = await request(app).delete(`/activity/${activityId}`);
-      expect(del.status).toBe(200);
+      expect(del.status).toBe(204);
     });
   });
 

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Base class for domain services that validate a DTO
  * with a Zod schema before touching the persistence port.
  *
@@ -32,11 +32,11 @@ export class ValidatingService {
     if (!schema) {
       throw new Error('ValidatingService requires a Zod schema');
     }
-    /** @property {import('zod').ZodTypeAny} schema */
+    /*** @property {import('zod').ZodTypeAny} schema */
     this.schema = schema;
   }
 
-  /**
+  /***
    * Runs `this.schema.safeParse(dto)` and throws a `ValidationError`
    * on failure, with the issue list formatted as
    * `"<path>: <message>"` strings (one per Zod issue).
@@ -55,7 +55,7 @@ export class ValidatingService {
     }
   }
 
-  /**
+  /***
    * Formats a Zod error into the same `"<path>: <message>"` strings
    * that {@link ValidatingService#validate} produces. Reused by
    * request handlers that validate patches against a schema they own

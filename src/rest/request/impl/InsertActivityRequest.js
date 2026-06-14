@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Request body for `POST /activities/:categoryId`.
  *
  * The `category` is resolved by the request handler from the

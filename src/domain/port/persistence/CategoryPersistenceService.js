@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Persistence port for the Category aggregate.
  */
 

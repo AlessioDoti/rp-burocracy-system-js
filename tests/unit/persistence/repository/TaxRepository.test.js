@@ -47,7 +47,7 @@ describe('TaxRepository', () => {
       const pool = makeMockPool([
         { match: includes('FROM TAX t') && includes('WHERE t.id'), rows: [{
           t_id: 10, t_activity_id: 1,
-          t_manager_name: 'Mario', t_manager_surname: 'Rossi', t_manager_role: 'MANAGER',
+          t_person_uuid: 'uuid-mario',
           t_expenses: 500, t_earnings: 3000, t_revenue: 2500,
           t_tax_amount: 250,
           t_elapsed_days: 3, t_elapsed_bill_amount: 45000, t_taxable_income: 250 * 45000,
@@ -79,7 +79,7 @@ describe('TaxRepository', () => {
       const pool = makeMockPool([
         { match: includes('FROM TAX t') && includes('WHERE t.id'), rows: [{
           t_id: 10, t_activity_id: null,
-          t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+          t_person_uuid: 'uuid-a',
           t_expenses: 0, t_earnings: 0, t_revenue: 0,
           t_tax_amount: 0,
           t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
@@ -105,7 +105,7 @@ describe('TaxRepository', () => {
           rows: [
             {
               t_id: 1, t_activity_id: 1,
-              t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+              t_person_uuid: 'uuid-a',
               t_expenses: 0, t_earnings: 100, t_revenue: 100,
               t_tax_amount: 10,
               t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
@@ -167,7 +167,7 @@ describe('TaxRepository', () => {
       for (let i = 1; i <= 5; i++) {
         taxRows.push({
           t_id: i, t_activity_id: 1,
-          t_manager_name: `m${i}`, t_manager_surname: `s${i}`, t_manager_role: 'M',
+          t_person_uuid: `uuid-m${i}`,
           t_expenses: 0, t_earnings: i * 100, t_revenue: i * 100,
           t_tax_amount: i * 10,
           t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
@@ -224,15 +224,15 @@ describe('TaxRepository', () => {
       const pool = makeMockPool([
         { match: (sql) => sql.includes('FROM TAX t') && sql.includes('LIMIT'),
           rows: [
-            { t_id: 1, t_activity_id: 1, t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+            { t_id: 1, t_activity_id: 1, t_person_uuid: 'uuid-a',
               t_expenses: 0, t_earnings: 1, t_revenue: 1, t_tax_amount: 0,
               t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
               t_declaration_date: '2026-01-01', t_payed: 0 },
-            { t_id: 2, t_activity_id: 1, t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+            { t_id: 2, t_activity_id: 1, t_person_uuid: 'uuid-a',
               t_expenses: 0, t_earnings: 2, t_revenue: 2, t_tax_amount: 0,
               t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
               t_declaration_date: '2026-01-02', t_payed: 0 },
-            { t_id: 3, t_activity_id: 1, t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+            { t_id: 3, t_activity_id: 1, t_person_uuid: 'uuid-a',
               t_expenses: 0, t_earnings: 3, t_revenue: 3, t_tax_amount: 0,
               t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
               t_declaration_date: '2026-01-03', t_payed: 0 }
@@ -271,11 +271,11 @@ describe('TaxRepository', () => {
       const pool = makeMockPool([
         { match: (sql) => sql.includes('FROM TAX t') && sql.includes('WHERE t.ACTIVITY_ID') && sql.includes('LIMIT'),
           rows: [
-            { t_id: 1, t_activity_id: 5, t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+            { t_id: 1, t_activity_id: 5, t_person_uuid: 'uuid-a',
               t_expenses: 0, t_earnings: 1, t_revenue: 1, t_tax_amount: 0.1,
               t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
               t_declaration_date: '2026-01-01', t_payed: 0 },
-            { t_id: 2, t_activity_id: 5, t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+            { t_id: 2, t_activity_id: 5, t_person_uuid: 'uuid-a',
               t_expenses: 0, t_earnings: 2, t_revenue: 2, t_tax_amount: 0.2,
               t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
               t_declaration_date: '2026-01-02', t_payed: 0 }
@@ -347,7 +347,7 @@ describe('TaxRepository', () => {
         { match: startsWith('UPDATE'), rows: [] },
         { match: includes('FROM TAX t') && includes('WHERE t.id'), rows: [{
           t_id: 1, t_activity_id: 2,
-          t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+          t_person_uuid: 'uuid-a',
           t_expenses: 0, t_earnings: 100, t_revenue: 100,
           t_tax_amount: 10,
           t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
@@ -365,7 +365,7 @@ describe('TaxRepository', () => {
         taxAmount: 10,
         elapsedDays: 0, elapsedBillAmount: 0, taxableIncome: 10,
         declarationDate: '2026-06-06', payed: true,
-        managerName: 'a', managerSurname: 'b', managerRole: 'M',
+        personUuid: 'uuid-a',
         activity: { id: 2, category: null }
       };
 
@@ -373,8 +373,8 @@ describe('TaxRepository', () => {
       const updateCall = pool.calls.find((c) => c.sql.trimStart().startsWith('UPDATE'));
       expect(updateCall).toBeDefined();
       expect(updateCall.sql).toMatch(/UPDATE TAX SET/);
-      // The bracket rate is NOT a column — params count is 14 (was 15 with TAX_RATE).
-      expect(updateCall.params).toEqual([2, 'a', 'b', 'M', 0, 100, 100, 10, 0, 0, 10, '2026-06-06', 1, 1]);
+      // The bracket rate is NOT a column — params count is 12 (was 15 with TAX_RATE).
+      expect(updateCall.params).toEqual([2, 'uuid-a', 0, 100, 100, 10, 0, 0, 10, '2026-06-06', 1, 1]);
       expect(result.id).toBe(1);
       expect(result.activity.id).toBe(2);
     });
@@ -384,7 +384,7 @@ describe('TaxRepository', () => {
         { match: startsWith('INSERT'), rows: [{ insertId: 42 }] },
         { match: includes('FROM TAX t') && includes('WHERE t.id'), rows: [{
           t_id: 42, t_activity_id: 1,
-          t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+          t_person_uuid: 'uuid-a',
           t_expenses: 0, t_earnings: 0, t_revenue: 0,
           t_tax_amount: 0,
           t_elapsed_days: 0, t_elapsed_bill_amount: 0, t_taxable_income: 0,
@@ -428,7 +428,7 @@ describe('TaxRepository', () => {
       const pool = makeMockPool([
         { match: includes('FROM TAX t') && includes('WHERE t.id'), rows: [{
           t_id: '1', t_activity_id: '2',
-          t_manager_name: 'a', t_manager_surname: 'b', t_manager_role: 'M',
+          t_person_uuid: 'uuid-a',
           t_expenses: '100', t_earnings: '300', t_revenue: '200',
           t_tax_amount: '20',
           t_elapsed_days: '5', t_elapsed_bill_amount: '75000', t_taxable_income: '1500000',

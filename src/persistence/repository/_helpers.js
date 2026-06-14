@@ -1,10 +1,10 @@
-/**
+/***
  * @fileoverview Internal helpers shared by every repository.
  *
  * Kept private to the persistence layer; not exported beyond it.
  */
 
-/**
+/***
  * Coerces a value to a `number` when it is safe to do so.
  *
  * `mysql2` returns `DECIMAL` columns as strings (because they can
@@ -23,7 +23,7 @@ export function toNumber(v) {
   return Number.isNaN(n) ? v : n;
 }
 
-/**
+/***
  * Coerces a value to a `Date` instance.
  *
  * @param {*} v
@@ -36,7 +36,7 @@ export function toDate(v) {
   return new Date(v);
 }
 
-/**
+/***
  * Coerces a MySQL `TINYINT(1)` / 0-1 column to a JS boolean.
  *
  * @param {*} v
@@ -51,7 +51,7 @@ export function toBoolean(v) {
   return v === '1' || v === 'true';
 }
 
-/**
+/***
  * Builds an `ORDER BY` clause from a `Pageable.sort` object.
  *
  * Fields are whitelisted to avoid SQL injection: anything not in

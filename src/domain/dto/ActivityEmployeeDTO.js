@@ -1,8 +1,8 @@
-/**
+/***
  * @fileoverview Domain DTO for an employee attached to an activity.
  */
 
-/**
+/***
  * @class ActivityEmployeeDTO
  * @classdesc Value object representing an employee of an activity.
  */

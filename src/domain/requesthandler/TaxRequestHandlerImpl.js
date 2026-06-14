@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Concrete use-case for the Tax aggregate.
  *
  * Resolves the activity (by id) and validates the employee UUID
@@ -49,7 +49,6 @@ export class TaxRequestHandlerImpl extends TaxRequestHandler {
       throw new ValidationError(`Activity with id ${activity} does not exist`);
     }
 
-    // ACTIVITY_MANAGER without ADMIN/GOVERNMENT must be an employee
     if (opts.checkEmployee && opts.userId != null) {
       const person = await this.personService.getPersonByUserId(opts.userId);
       if (!person || !person.uuid) {
@@ -72,7 +71,7 @@ export class TaxRequestHandlerImpl extends TaxRequestHandler {
     return this.taxService.insertTax(dto);
   }
 
-  /**
+  /***
    * @param {number|string} activity  Activity primary key.
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
    * @param {{ checkEmployee?: boolean, userId?: number }} [opts]
@@ -96,7 +95,7 @@ export class TaxRequestHandlerImpl extends TaxRequestHandler {
     return this.taxService.findTaxByActivity(activityId, pageable);
   }
 
-  /**
+  /***
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
    * @returns {Promise<import('../dto/Page.js').Page<import('../dto/TaxDTO.js').TaxDTO>>}
    */
@@ -104,7 +103,7 @@ export class TaxRequestHandlerImpl extends TaxRequestHandler {
     return this.taxService.findAllTaxes(pageable);
   }
 
-  /**
+  /***
    * @param {{ earnings?: number, expenses?: number, payed?: boolean, elapsedDays?: number }} patch
    * @param {number} id
    * @returns {Promise<import('../dto/TaxDTO.js').TaxDTO>}

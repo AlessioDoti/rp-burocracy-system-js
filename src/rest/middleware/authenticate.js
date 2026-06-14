@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Express middleware that verifies a Bearer JWT access token
  * via Passport's Bearer strategy (configured in `src/config/passport.js`).
  *

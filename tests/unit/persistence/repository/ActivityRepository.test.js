@@ -51,6 +51,10 @@ describe('ActivityRepository', () => {
           rows: [{ id: 1, NAME: 'shop', ADDRESS: 42, CATEGORY_ID: 1 }]
         },
         {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
+        },
+        {
           match: includes('FROM CATEGORY c') && includes('WHERE c.id = ?'),
           rows: [
             { id: 1, NAME: 'food', ct_id: 1, ct_amount: 0, ct_rate: 10 },
@@ -79,6 +83,10 @@ describe('ActivityRepository', () => {
         {
           match: includes('FROM ACTIVITY WHERE id'),
           rows: [{ id: 1, NAME: 'shop', ADDRESS: 42, CATEGORY_ID: null }]
+        },
+        {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
         }
       ]);
       const repo = new ActivityRepository(pool);
@@ -86,7 +94,7 @@ describe('ActivityRepository', () => {
 
       expect(result.category).toBeNull();
       // The category query must NOT run when CATEGORY_ID is null.
-      expect(pool.calls).toHaveLength(1);
+      expect(pool.calls).toHaveLength(2);
     });
 
     it('returns the activity with category=null when the category FK points to a missing row', async () => {
@@ -94,6 +102,10 @@ describe('ActivityRepository', () => {
         {
           match: includes('FROM ACTIVITY WHERE id'),
           rows: [{ id: 1, NAME: 'shop', ADDRESS: 42, CATEGORY_ID: 99 }]
+        },
+        {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
         },
         {
           match: includes('FROM CATEGORY c'),
@@ -118,6 +130,10 @@ describe('ActivityRepository', () => {
             { a_id: 1, a_name: 'shop-1', a_address: 1, a_category_id: 1 },
             { a_id: 2, a_name: 'shop-2', a_address: 2, a_category_id: 2 }
           ]
+        },
+        {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
         },
         {
           // (2) Categories + taxes for the page
@@ -172,6 +188,10 @@ describe('ActivityRepository', () => {
         {
           match: (sql) => sql.includes('FROM ACTIVITY a') && sql.includes('LIMIT'),
           rows: activityRows
+        },
+        {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
         },
         {
           match: (sql) => sql.includes('FROM CATEGORY c') && sql.includes('IN ('),
@@ -229,6 +249,10 @@ describe('ActivityRepository', () => {
           ]
         },
         {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
+        },
+        {
           match: (sql) => sql.includes('FROM CATEGORY c') && sql.includes('IN ('),
           rows: [
             { id: 2, NAME: 'retail', ct_id: 4, ct_amount: 0, ct_rate: 15 }
@@ -249,24 +273,40 @@ describe('ActivityRepository', () => {
 
   describe('save', () => {
     it('issues an UPDATE when the activity has an id, and reloads via findById', async () => {
-      const pool = makeMockPool([
-        { match: startsWith('UPDATE'), rows: [] },
-        { match: includes('FROM ACTIVITY WHERE id'), rows: [{ id: 1, NAME: 'updated', ADDRESS: 99, CATEGORY_ID: 2 }] },
-        {
-          match: includes('FROM CATEGORY c') && includes('WHERE c.id = ?'),
-          rows: [{ id: 2, NAME: 'retail', ct_id: 4, ct_amount: 0, ct_rate: 15 }]
-        }
-      ]);
+      const connQuery = jest.fn(async (sql, params) => {
+        if (sql.trimStart().startsWith('UPDATE')) return [[], []];
+        throw new Error(`Unexpected query on connection: ${sql}`);
+      });
+      const conn = {
+        query: connQuery,
+        beginTransaction: jest.fn(),
+        commit: jest.fn(),
+        rollback: jest.fn(),
+        release: jest.fn()
+      };
+      const pool = {
+        query: jest.fn(async (sql, params) => {
+          if (sql.includes('FROM ACTIVITY WHERE id')) return [[{ id: 1, NAME: 'updated', ADDRESS: 99, CATEGORY_ID: 2 }], []];
+          if (sql.includes('FROM CATEGORY c') && sql.includes('WHERE c.id = ?')) return [[{ id: 2, NAME: 'retail', ct_id: 4, ct_amount: 0, ct_rate: 15 }], []];
+          if (sql.includes('FROM ACTIVITIES_EMPLOYEES')) return [[], []];
+          throw new Error(`Unexpected query in mock pool: ${sql}`);
+        }),
+        getConnection: jest.fn(async () => conn)
+      };
       const repo = new ActivityRepository(pool);
       const category = { id: 2, NAME: 'retail', categoryTaxes: [{ id: 4, amount: 0, rate: 15 }] };
       const activity = { id: 1, name: 'updated', address: 99, category };
 
       const result = await repo.save(activity);
 
-      const updateCall = pool.calls.find((c) => c.sql.trimStart().startsWith('UPDATE'));
-      expect(updateCall).toBeDefined();
-      expect(updateCall.sql).toMatch(/UPDATE ACTIVITY SET NAME = \?, ADDRESS = \?, CATEGORY_ID = \? WHERE id = \?/);
-      expect(updateCall.params).toEqual(['updated', 99, 2, 1]);
+      expect(connQuery).toHaveBeenCalledTimes(1);
+      expect(connQuery).toHaveBeenCalledWith(
+        expect.stringMatching(/UPDATE ACTIVITY SET NAME = \?, ADDRESS = \?, CATEGORY_ID = \? WHERE id = \?/),
+        ['updated', 99, 2, 1]
+      );
+      expect(conn.beginTransaction).toHaveBeenCalledTimes(1);
+      expect(conn.commit).toHaveBeenCalledTimes(1);
+      expect(conn.release).toHaveBeenCalledTimes(1);
 
       expect(result.id).toBe(1);
       expect(result.name).toBe('updated');
@@ -276,24 +316,40 @@ describe('ActivityRepository', () => {
     });
 
     it('issues an INSERT followed by findById when the activity has no id', async () => {
-      const pool = makeMockPool([
-        { match: startsWith('INSERT'), rows: [{ insertId: 42 }] },
-        { match: includes('FROM ACTIVITY WHERE id'), rows: [{ id: 42, NAME: 'fresh', ADDRESS: 1, CATEGORY_ID: 1 }] },
-        {
-          match: includes('FROM CATEGORY c') && includes('WHERE c.id = ?'),
-          rows: [{ id: 1, NAME: 'food', ct_id: 1, ct_amount: 0, ct_rate: 10 }]
-        }
-      ]);
+      const connQuery = jest.fn(async (sql, params) => {
+        if (sql.trimStart().startsWith('INSERT')) return [{ insertId: 42 }, []];
+        throw new Error(`Unexpected query on connection: ${sql}`);
+      });
+      const conn = {
+        query: connQuery,
+        beginTransaction: jest.fn(),
+        commit: jest.fn(),
+        rollback: jest.fn(),
+        release: jest.fn()
+      };
+      const pool = {
+        query: jest.fn(async (sql, params) => {
+          if (sql.includes('FROM ACTIVITY WHERE id')) return [[{ id: 42, NAME: 'fresh', ADDRESS: 1, CATEGORY_ID: 1 }], []];
+          if (sql.includes('FROM CATEGORY c') && sql.includes('WHERE c.id = ?')) return [[{ id: 1, NAME: 'food', ct_id: 1, ct_amount: 0, ct_rate: 10 }], []];
+          if (sql.includes('FROM ACTIVITIES_EMPLOYEES')) return [[], []];
+          throw new Error(`Unexpected query in mock pool: ${sql}`);
+        }),
+        getConnection: jest.fn(async () => conn)
+      };
       const repo = new ActivityRepository(pool);
       const category = { id: 1, NAME: 'food', categoryTaxes: [] };
       const activity = { id: null, name: 'fresh', address: 1, category };
 
       const result = await repo.save(activity);
 
-      const insertCall = pool.calls.find((c) => c.sql.trimStart().startsWith('INSERT'));
-      expect(insertCall).toBeDefined();
-      expect(insertCall.sql).toMatch(/INSERT INTO ACTIVITY \(NAME, ADDRESS, CATEGORY_ID\) VALUES \(\?, \?, \?\)/);
-      expect(insertCall.params).toEqual(['fresh', 1, 1]);
+      expect(connQuery).toHaveBeenCalledTimes(1);
+      expect(connQuery).toHaveBeenCalledWith(
+        expect.stringMatching(/INSERT INTO ACTIVITY \(NAME, ADDRESS, CATEGORY_ID\) VALUES \(\?, \?, \?\)/),
+        ['fresh', 1, 1]
+      );
+      expect(conn.beginTransaction).toHaveBeenCalledTimes(1);
+      expect(conn.commit).toHaveBeenCalledTimes(1);
+      expect(conn.release).toHaveBeenCalledTimes(1);
 
       expect(result.id).toBe(42);
     });
@@ -362,6 +418,7 @@ describe('ActivityRepository', () => {
 
     it('deletes taxes before the activity in a single transaction and commits', async () => {
       const { pool, conn, calls, txnLog } = makeTransactionalMockPool([
+        { match: includes('FROM ACTIVITIES_EMPLOYEES'), rows: [] },
         { match: includes('FROM TAX WHERE ACTIVITY_ID'), rows: [] },
         { match: includes('FROM ACTIVITY WHERE id'),     rows: [] }
       ]);
@@ -372,15 +429,18 @@ describe('ActivityRepository', () => {
       // Transaction lifecycle in the right order.
       expect(txnLog).toEqual(['GET_CONNECTION', 'BEGIN', 'COMMIT', 'RELEASE']);
 
-      // Tax delete runs first (so the FK does not fail), then the
-      // activity delete, both on the same connection.
-      expect(calls).toHaveLength(2);
-      expect(calls[0].sql).toMatch(/DELETE FROM TAX WHERE ACTIVITY_ID = \?/);
+      // Employee delete runs first, then tax delete (so the FK does not fail), then the
+      // activity delete, all on the same connection.
+      expect(calls).toHaveLength(3);
+      expect(calls[0].sql).toMatch(/DELETE FROM ACTIVITIES_EMPLOYEES WHERE ACTIVITY_ID = \?/);
       expect(calls[0].params).toEqual([7]);
       expect(calls[0].on).toBe('connection');
-      expect(calls[1].sql).toMatch(/DELETE FROM ACTIVITY WHERE id = \?/);
+      expect(calls[1].sql).toMatch(/DELETE FROM TAX WHERE ACTIVITY_ID = \?/);
       expect(calls[1].params).toEqual([7]);
       expect(calls[1].on).toBe('connection');
+      expect(calls[2].sql).toMatch(/DELETE FROM ACTIVITY WHERE id = \?/);
+      expect(calls[2].params).toEqual([7]);
+      expect(calls[2].on).toBe('connection');
 
       // Neither call leaks to the pool directly.
       expect(pool.query).not.toHaveBeenCalled();
@@ -391,6 +451,7 @@ describe('ActivityRepository', () => {
     it('rolls back and rethrows when the tax delete fails', async () => {
       const dbError = Object.assign(new Error('FK violation'), { code: 'ER_ROW_IS_REFERENCED_2' });
       const { pool, conn, txnLog } = makeTransactionalMockPool([
+        { match: includes('FROM ACTIVITIES_EMPLOYEES'), rows: [] },
         { match: includes('FROM TAX WHERE ACTIVITY_ID'), rows: [], throw: () => dbError }
       ]);
       const repo = new ActivityRepository(pool);
@@ -407,6 +468,7 @@ describe('ActivityRepository', () => {
     it('rolls back and rethrows when the activity delete fails (after tax delete succeeded)', async () => {
       const dbError = Object.assign(new Error('row locked'), { code: 'ER_LOCK_WAIT_TIMEOUT' });
       const { pool, conn, txnLog } = makeTransactionalMockPool([
+        { match: includes('FROM ACTIVITIES_EMPLOYEES'), rows: [] },
         { match: includes('FROM TAX WHERE ACTIVITY_ID'), rows: [] },
         { match: includes('FROM ACTIVITY WHERE id'),     rows: [], throw: () => dbError }
       ]);
@@ -416,7 +478,7 @@ describe('ActivityRepository', () => {
 
       // The tax delete ran but was rolled back. No commit.
       expect(txnLog).toEqual(['GET_CONNECTION', 'BEGIN', 'ROLLBACK', 'RELEASE']);
-      expect(conn.query).toHaveBeenCalledTimes(2);
+      expect(conn.query).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -426,6 +488,10 @@ describe('ActivityRepository', () => {
         {
           match: includes('FROM ACTIVITY WHERE id'),
           rows: [{ id: 1, NAME: 'shop', ADDRESS: 42, CATEGORY_ID: 1 }]
+        },
+        {
+          match: includes('FROM ACTIVITIES_EMPLOYEES'),
+          rows: []
         },
         {
           match: includes('FROM CATEGORY c'),

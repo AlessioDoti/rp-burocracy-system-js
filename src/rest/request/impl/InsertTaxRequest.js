@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Request body for `POST /tax/:activity`.
  *
  * Carries the financial data and the `employeeUuid` of the person

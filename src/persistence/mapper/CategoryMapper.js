@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Maps between `Category` (persistence row) and
  * `CategoryDTO` (domain object), delegating per-bracket conversion to
  * `CategoryTaxMapper`.

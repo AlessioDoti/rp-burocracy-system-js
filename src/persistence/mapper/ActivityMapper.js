@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Maps between `Activity` (persistence row) and
  * `ActivityDTO` (domain object).
  */

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Lazily-validated environment configuration.
  *
  * `process.env` is parsed and validated on first read (via the
@@ -22,7 +22,7 @@ import { z } from 'zod';
  * @property {'fatal'|'error'|'warn'|'info'|'debug'|'trace'} LOG_LEVEL
  */
 
-/**
+/***
  * The shape every env variable must conform to.
  * @type {import('zod').ZodType<Env>}
  */
@@ -66,7 +66,7 @@ function load() {
   return cached;
 }
 
-/**
+/***
  * Lazy, throw-on-first-use accessor for the validated env. Reading any
  * property triggers `load()`.
  */

@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Process bootstrap.
  *
  * Composes the Express app, starts the HTTP listener, installs the

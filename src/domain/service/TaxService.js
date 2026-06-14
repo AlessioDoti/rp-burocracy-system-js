@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Domain service for the Tax aggregate.
  *
  * Owns every tax-related computation: revenue, tax rate picked from
@@ -76,7 +76,7 @@ export class TaxService extends ValidatingService {
     return this.taxPersistenceService.saveTax(found);
   }
 
-  /**
+  /***
    * Lists the declarations filed against the given activity name.
    *
    * @param {string} activity
@@ -87,7 +87,7 @@ export class TaxService extends ValidatingService {
     return this.taxPersistenceService.findActivityTaxes(activity, pageable);
   }
 
-  /**
+  /***
    * Lists every tax declaration, newest first by default.
    *
    * @param {{ page: number, size: number, sort: { field: string, direction: 'asc'|'desc' }|null, offset: number }} pageable
@@ -97,9 +97,7 @@ export class TaxService extends ValidatingService {
     return this.taxPersistenceService.findAllTaxes(pageable);
   }
 
-  // --- Internal helpers -----------------------------------------------------
-
-  /**
+  /***
    * Applies a partial patch to a persisted DTO in place. A field is
    * written only when it is present in the patch (`!== undefined`);
    * a literal `0` is a valid value. The derived fields are always
@@ -122,7 +120,7 @@ export class TaxService extends ValidatingService {
     found.taxAmount = this.computeTaxAmount(found.taxableIncome, found.elapsedBillAmount);
   }
 
-  /**
+  /***
    * Computes every derived field on the DTO in place and stamps
    * `declarationDate` with the current date. Called from
    * {@link TaxService#insertTax}.
@@ -140,7 +138,7 @@ export class TaxService extends ValidatingService {
     dto.declarationDate = new Date();
   }
 
-  /**
+  /***
    * @param {number} earnings
    * @param {number} expenses
    * @returns {number} earnings − expenses.
@@ -149,7 +147,7 @@ export class TaxService extends ValidatingService {
     return earnings - expenses;
   }
 
-  /**
+  /***
    * Picks the rate of the highest bracket whose `amount ≤ revenue`. The
    * brackets are read from `activity.category.categoryTaxes`. Returns
    * `0` when the activity or its category is missing or when no
@@ -170,7 +168,7 @@ export class TaxService extends ValidatingService {
     return 0;
   }
 
-  /**
+  /***
    * Computes the base tax (the "taxable income" amount, in the tax
    * sense) as a percentage of the revenue.
    *
@@ -182,7 +180,7 @@ export class TaxService extends ValidatingService {
     return (revenue * rate) / 100;
   }
 
-  /**
+  /***
    * Computes the total amount owed: the base tax plus the late-filing
    * penalty.
    *
@@ -194,7 +192,7 @@ export class TaxService extends ValidatingService {
     return taxableIncome + elapsedBillAmount;
   }
 
-  /**
+  /***
    * Looks up the number of days since the most recent declaration for
    * the given activity, minus the 7-day grace period (clamped to 0).
    *
@@ -206,7 +204,7 @@ export class TaxService extends ValidatingService {
     return elapsed >= TaxService.ELAPSED_DAYS_BASE ? elapsed - TaxService.ELAPSED_DAYS_BASE : 0;
   }
 
-  /**
+  /***
    * @param {number} elapsedDays
    * @returns {number} elapsedDays × 15 000.
    */

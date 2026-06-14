@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Express router factory for the `/category` resource.
  */
 

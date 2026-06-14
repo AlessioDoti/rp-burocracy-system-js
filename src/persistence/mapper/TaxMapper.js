@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Maps between `Tax` (persistence row) and `TaxDTO`
  * (domain object). The person UUID is stored as a scalar column
  * on the row side and carried as a plain string on the DTO.

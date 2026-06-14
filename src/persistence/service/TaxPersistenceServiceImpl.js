@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview MySQL-backed implementation of the Tax persistence
  * port, including the "days elapsed since the last declaration"
  * derived query.

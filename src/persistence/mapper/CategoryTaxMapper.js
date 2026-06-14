@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Maps between `CategoryTax` (persistence row) and
  * `CategoryTaxDTO` (domain object).
  */

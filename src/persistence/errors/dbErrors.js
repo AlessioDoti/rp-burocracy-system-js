@@ -1,4 +1,4 @@
-/**
+/***
  * @fileoverview Translates known MySQL driver errors into typed
  * `AppError` subclasses so the global error handler can return the
  * correct HTTP status code instead of masking every database failure
@@ -20,7 +20,7 @@ import { ConflictError, ForeignKeyViolationError } from '../../domain/error/AppE
  * }} MysqlError
  */
 
-/**
+/***
  * Parses the constraint metadata out of a MySQL FK error message.
  *
  * Format: `... CONSTRAINT `<name>` FOREIGN KEY (`<fkCol>`) REFERENCES
@@ -50,7 +50,7 @@ function parseFkConstraint(sqlMessage) {
   };
 }
 
-/**
+/***
  * Maps a MySQL error to an `AppError` when the meaning is unambiguous.
  * Returns the original error untouched when no mapping applies.
  *

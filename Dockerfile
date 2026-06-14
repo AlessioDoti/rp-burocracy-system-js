@@ -4,4 +4,4 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY . .
 EXPOSE 8081
-CMD ["node", "--env-file=.env", "src/server.js"]
+CMD ["node", "src/server.js"]
